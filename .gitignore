@@ -1,0 +1,14 @@
+# 本地环境配置（数据库密钥等，绝不上传 GitHub）
+.env
+.env.*
+
+# 依赖目录（Day 7 之后会用到）
+node_modules/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器配置
+.vscode/
+.idea/
