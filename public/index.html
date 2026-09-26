@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>peach · 中文名字生成器</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <div class="logo">🍑</div>
+      <p class="site">peach · AI 小工具站</p>
+      <h1>中文名字生成器</h1>
+      <p class="slogan">写下你的想法，10 秒拿到一批带寓意的名字——不注册，打开就用。</p>
+    </header>
+
+    <form id="form" class="panel" autocomplete="off">
+      <label class="field">
+        <span class="label">用在哪儿</span>
+        <select id="scene">
+          <option value="品牌" selected>品牌</option>
+          <option value="店铺">店铺</option>
+          <option value="宠物">宠物</option>
+          <option value="网络昵称">网络昵称</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="label">关键词 <em>（1–20 个字，说说想表达什么）</em></span>
+        <input id="keyword" type="text" maxlength="40" placeholder="例如：海边咖啡店，安静治愈">
+      </label>
+
+      <button id="btn" type="submit">✨ 生成名字</button>
+      <p id="hint" class="hint" role="alert"></p>
+    </form>
+
+    <section class="results">
+      <div class="results-head">
+        <h2>生成结果</h2>
+        <span id="quota" class="quota"></span>
+      </div>
+      <div id="results">
+        <div class="card sample">
+          <div class="name">浪屿</div>
+          <div class="meaning">示例：关键词「海边咖啡店，安静治愈」→ 想象一座海上的小岛，安静得只听得见浪。</div>
+          <div class="sample-note">👆 这是示例。填好上方的表单，点「生成名字」就能拿到你的第一批。</div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      每日免费生成 5 次 · 明天自动恢复 · peach MVP（Day 7 本地版）
+    </footer>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
