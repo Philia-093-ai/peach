@@ -1,6 +1,10 @@
-// app.js —— peach MVP 前端交互（Day 7）
-// 负责：表单校验（A5/A6）、每日额度（A7，localStorage 按天计数）、
-//       调后端接口、渲染结果卡片（A4）、复制按钮、失败不扣额度（A8）
+// app.js —— peach 前端交互（Day 8：四种页面状态 + mock 数据渲染）
+// 结果区的四种状态，一个都不能少：
+//   空状态   empty   —— 第一次打开，什么都没有 → 用示例卡片当"路标"
+//   加载状态 loading —— 请求已发出在等结果 → 骨架屏占位
+//   成功状态 loaded  —— 数据到手 → 渲染名字卡片
+//   错误状态 error   —— 失败/超时 → 说人话 + 可重试，绝不显示报错堆栈
+// Day 7 的表单校验（A5/A6）、每日额度（A7）、失败不扣额度（A8）原样保留
 
 var DAILY_LIMIT = 5;
 
@@ -98,29 +102,21 @@ form.addEventListener('submit', function (ev) {
   hint('');
   btn.disabled = true;
   btn.textContent = '生成中…';
+  showLoading(); // 一发出请求就进入加载状态
 
-  var controller = new AbortController();
-  var timer = setTimeout(function () { controller.abort(); }, 10000); // A8：10 秒超时
-
-  fetch('/api/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scene: sceneEl.value, keyword: keyword }),
-    signal: controller.signal,
-  })
-    .then(function (res) { return res.json(); })
+  // 统一从"数据源"拿数据：今天是 mock 假数据，第 3 周接真 API 只改 getData 这一个函数
+  getData(sceneEl.value, keyword)
     .then(function (data) {
-      clearTimeout(timer);
       if (data && data.ok && data.names && data.names.length) {
-        renderNames(data.names);       // 先展示结果
+        showLoaded(data.names);        // 成功状态：渲染卡片
         addUsed();                     // 成功才扣额度（失败不扣，A8）
         showQuota();
       } else {
-        hint((data && data.error) || '生成失败，请重试');
+        showError((data && data.error) || '生成失败，请重试');
       }
     })
     .catch(function () {
-      hint('生成失败，请重试');
+      showError('生成失败，请重试');   // 错误状态：不出现报错堆栈（A8）
     })
     .then(function () {
       busy = false;
@@ -129,31 +125,96 @@ form.addEventListener('submit', function (ev) {
     });
 });
 
-function renderNames(names) {
-  resultsEl.textContent = ''; // 清空（含示例卡）
-  names.forEach(function (item) {
-    var card = document.createElement('div');
-    card.className = 'card';
+// mock 模式：走 mock.js 的假接口（假延迟 0.8 秒，正好够看清骨架屏）
+// 真接口模式：走 Day 7 的 POST /api/generate（10 秒超时兜底）
+function getData(scene, keyword) {
+  if (typeof MOCK_MODE !== 'undefined' && MOCK_MODE) {
+    return mockRequest(scene, keyword);
+  }
+  var controller = new AbortController();
+  var timer = setTimeout(function () { controller.abort(); }, 10000); // A8：10 秒超时
+  return fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scene: scene, keyword: keyword }),
+    signal: controller.signal,
+  }).then(function (res) { clearTimeout(timer); return res.json(); });
+}
 
-    var name = document.createElement('div');
-    name.className = 'name';
-    name.appendChild(textOf(item.name));
+// ---------- 四种页面状态 ----------
+// 心法：任何一块"要等数据"的区域，都要把四种样子都想清楚再动手。
 
-    var meaning = document.createElement('div');
-    meaning.className = 'meaning';
-    meaning.appendChild(textOf(item.meaning));
+// 空状态：第一次打开，用示例卡片告诉用户"填这里会出什么"
+function showEmpty() {
+  resultsEl.textContent = '';
+  var card = document.createElement('div');
+  card.className = 'card sample';
 
-    var copy = document.createElement('button');
-    copy.type = 'button';
-    copy.className = 'copy';
-    copy.textContent = '复制';
-    copy.addEventListener('click', function () { copyText(item.name, copy); });
+  var name = document.createElement('div');
+  name.className = 'name';
+  name.textContent = '浪屿';
 
-    card.appendChild(name);
-    card.appendChild(meaning);
-    card.appendChild(copy);
-    resultsEl.appendChild(card);
-  });
+  var meaning = document.createElement('div');
+  meaning.className = 'meaning';
+  meaning.textContent = '示例：关键词「海边咖啡店，安静治愈」→ 想象一座海上的小岛，安静得只听得见浪。';
+
+  var note = document.createElement('div');
+  note.className = 'sample-note';
+  note.textContent = '👆 这是示例。填好上方的表单，点「生成名字」就能拿到你的第一批。';
+
+  card.appendChild(name);
+  card.appendChild(meaning);
+  card.appendChild(note);
+  resultsEl.appendChild(card);
+}
+
+// 加载状态：6 块骨架屏。比喻：菜还没上，先用"假菜模型"把桌面占好，
+// 用户就知道"已经在做了"，而不是"页面坏了"。
+function showLoading() {
+  resultsEl.textContent = '';
+  for (var i = 0; i < 6; i++) {
+    var sk = document.createElement('div');
+    sk.className = 'card skeleton';
+    var n = document.createElement('div');
+    n.className = 'name';
+    var m = document.createElement('div');
+    m.className = 'meaning';
+    sk.appendChild(n);
+    sk.appendChild(m);
+    resultsEl.appendChild(sk);
+  }
+}
+
+// 成功状态：把数据交给 card.js 的可复用组件渲染
+function showLoaded(names) {
+  renderNameList(resultsEl, names);
+}
+
+// 错误状态：说人话 + 给一个重试按钮，页面绝不出现报错堆栈（A8）
+function showError(msg) {
+  resultsEl.textContent = '';
+  var card = document.createElement('div');
+  card.className = 'card state-error';
+
+  var title = document.createElement('div');
+  title.className = 'name';
+  title.textContent = '😶 生成失败了';
+
+  var note = document.createElement('div');
+  note.className = 'meaning';
+  note.textContent = msg || '生成失败，请重试';
+
+  var retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = 'copy retry';
+  retry.textContent = '再试一次';
+  retry.addEventListener('click', function () { btn.click(); });
+
+  card.appendChild(title);
+  card.appendChild(note);
+  card.appendChild(retry);
+  resultsEl.appendChild(card);
 }
 
 showQuota();
+showEmpty(); // 页面刚打开，先亮出空状态（示例卡）

@@ -1,6 +1,13 @@
-# RUN.md｜peach MVP 运行说明（Day 7 存档）
+# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补）
 
 > 一句话：一条命令启动，浏览器打开 <http://localhost:3000> 就能用。
+
+## Day 8 增补：mock 数据开关（public/mock.js）
+
+- `MOCK_MODE = true`（当前）：页面用**本地假数据**渲染四种状态（空 / 加载 / 成功 / 错误），不调后端
+- `MOCK_FORCE_ERROR = true`：每次生成都失败，用来看「错误状态 + 重试按钮」长什么样
+- `MOCK_DELAY`：假网络延迟（默认 800 毫秒），调大可以让骨架屏多停一会儿
+- 第 3 周接真 API：把 `MOCK_MODE` 改成 `false` 即走 Day 7 的 `POST /api/generate`（本地词库版）
 
 ## 怎么跑起来
 
