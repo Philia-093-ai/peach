@@ -1,13 +1,23 @@
-/* peach MVP 样式（Day 7）——好用优先，好看其次 */
+/* peach MVP 样式（Day 7 建，Day 9 按设计规则修对比/间距/焦点） */
+
+/* ── Day 9 加练：可复用的组件约束（改颜色先过这两条） ──
+   1) 文字对比度：所有文字颜色相对其背景 ≥ 4.5:1（小字）/ ≥ 3:1（≥19px 粗体大字）。
+      已验证的组合：--ink/--cream、--ink/--peach-light、#fff/--peach-deep(5.5:1)、
+      --ink-soft/--cream(6.4:1)、--peach-deep/--peach-light(4.6:1)。
+      新增文字色先查 https://webaim.org/resources/contrastchecker/ 再入库。
+   2) 间距节奏：竖向间距只用 8 的倍数（8/16/24/32），横向上限 16。
+      组件内部小间隙 8，组件之间 16，区块之间 24。 */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
   --peach: #f4876c;
-  --peach-deep: #e06a4f;
+  /* Day 9 对比度修复：#e06a4f 只有 3.3:1，白字按钮/提示文字不达标，加深到 5.5:1 */
+  --peach-deep: #b5442d;
   --peach-light: #ffe9e0;
   --cream: #fffaf6;
   --ink: #3d2c28;
-  --ink-soft: #8a746d;
+  /* Day 9 对比度修复：#8a746d 是 4.4:1，小字号次要文字差一点点，加深到 6.4:1 */
+  --ink-soft: #6e5a53;
   --line: #f3e2d9;
 }
 
@@ -38,7 +48,8 @@ h1 { font-size: 30px; margin: 6px 0 8px; }
   box-shadow: 0 6px 18px rgba(224, 106, 79, 0.08);
 }
 
-.field { display: block; margin-bottom: 14px; }
+/* Day 9 间距修复：竖向节奏统一成 8 的倍数（8/16/24），不再 6/10/14 混着来 */
+.field { display: block; margin-bottom: 16px; }
 .label { display: block; font-size: 13px; color: var(--ink-soft); margin-bottom: 6px; }
 .label em { font-style: normal; font-size: 12px; }
 
@@ -50,9 +61,18 @@ select, input {
   border-radius: 10px;
   background: var(--cream);
   color: var(--ink);
-  outline: none;
 }
-select:focus, input:focus { border-color: var(--peach); }
+/* Day 9 焦点修复：去掉裸 outline:none，换成看得见的 3px 桃色光圈，
+   键盘 Tab 走到哪一眼能看到（focus-visible 只在键盘操作时出现，不烦鼠标用户） */
+select:focus, input:focus {
+  border-color: var(--peach-deep);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(181, 68, 45, 0.18);
+}
+#btn:focus-visible {
+  outline: 3px solid rgba(181, 68, 45, 0.45);
+  outline-offset: 2px;
+}
 
 #btn {
   width: 100%;
@@ -76,16 +96,16 @@ select:focus, input:focus { border-color: var(--peach); }
 .results-head h2 { font-size: 18px; }
 .quota { font-size: 12px; color: var(--ink-soft); }
 
-#results { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+#results { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 
 .card {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 14px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .card .name { font-size: 20px; font-weight: 700; color: var(--peach-deep); }
 .card .meaning { font-size: 13px; color: var(--ink-soft); flex: 1; }
