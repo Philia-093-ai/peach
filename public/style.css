@@ -62,6 +62,19 @@ select, input {
   background: var(--cream);
   color: var(--ink);
 }
+/* Day 10 修复：下拉框原来是 Windows 系统原生样式，右侧两个小三角跟整体风格不搭。
+   appearance:none 去掉原生箭头，换成背景里的桃色小箭头（内嵌 SVG），垂直居中；
+   padding-right 给箭头留位置，避免选中的文字压上去。
+   注意：这段必须放在上面 background 简写之后，否则箭头图会被简写重置掉。 */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' fill='none' stroke='%23b5442d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
+  padding-right: 36px;
+}
 /* Day 9 焦点修复：去掉裸 outline:none，换成看得见的 3px 桃色光圈，
    键盘 Tab 走到哪一眼能看到（focus-visible 只在键盘操作时出现，不烦鼠标用户） */
 select:focus, input:focus {
