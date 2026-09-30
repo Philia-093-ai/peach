@@ -165,6 +165,58 @@ select:focus, input:focus {
 
 .foot { text-align: center; color: var(--ink-soft); font-size: 12px; margin-top: 28px; }
 
+/* ── Day 11：交互反馈——复制按钮的"动静双通道" ──
+   动（动效）：按下缩一缩（:active），成功 pop 弹一下（.copied 动画）
+   静（提示）：胶囊变绿写「已复制 ✓」，底部浮出 toast 文字确认
+   Day 9 约束：新增文字色已验证对比度——
+     #1e7a46 / #e7f5ec = 4.75:1（小字达标），#fff / --ink = 13.21:1 */
+.card .copy {
+  transition: transform 0.1s ease, background-color 0.15s ease, color 0.15s ease;
+}
+/* 按下瞬间：缩到 92%——手指还没抬起来就知道"摸到了" */
+.card .copy:active { transform: scale(0.92); }
+/* 键盘走到复制按钮也看得见（和 #btn:focus-visible 同款光圈） */
+.card .copy:focus-visible {
+  outline: 3px solid rgba(181, 68, 45, 0.45);
+  outline-offset: 2px;
+}
+/* 复制成功：胶囊变绿 + pop 弹跳动画 */
+.card .copy.copied {
+  background: #e7f5ec;
+  color: #1e7a46;
+  animation: pop 0.3s ease;
+}
+@keyframes pop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* toast：从屏幕底部浮出的提示条（app.js 的 showToast 在用）
+   深底白字跟桃色页面区分开——一眼就知道这是"系统的回话"；
+   pointer-events:none 让它绝不挡住下面的按钮；淡出由 JS 摘掉 .show 完成 */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translate(-50%, 16px);
+  background: var(--ink);
+  color: #fff;
+  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(61, 44, 40, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  max-width: 86%;
+  z-index: 10;
+}
+#toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 /* 手机：单列，不横向滚动 */
 @media (max-width: 560px) {
   #results { grid-template-columns: 1fr; }

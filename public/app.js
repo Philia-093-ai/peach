@@ -44,14 +44,45 @@ function textOf(str) { // 只用 textContent 渲染用户可见内容，样式�
   return document.createTextNode(String(str == null ? '' : str));
 }
 
+// ---------- Day 11：toast（底部浮出的提示条） ----------
+// 比喻：toast 就像收银台的"叮咚——已收款"提示音。用户刚做完一个动作，
+// 它从屏幕底部浮出来说一句结果，说完自己退场，不用点"确定"关掉。
+// role="status" + aria-live="polite"：读屏软件也会播报这句话（Day 9 焦点规则的延续）。
+var toastTimer = null;
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.setAttribute('role', 'status');
+    t.setAttribute('aria-live', 'polite');
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.className = 'show'; // CSS：淡入 + 从底部浮上来
+  if (toastTimer) clearTimeout(toastTimer); // 连续操作：新 toast 顶掉旧的，不排队不叠加
+  toastTimer = setTimeout(function () { t.className = ''; }, 1600);
+}
+
+// ---------- Day 11：复制成功的"动静双通道"反馈 ----------
+// 反馈走两条通道，用户才算真的"知道生效了"：
+//   动（动效）：按下时按钮缩一缩 → 成功时 pop 弹一下 + 胶囊变绿 —— 身体先感觉到
+//   静（提示）：按钮文字变「已复制 ✓」+ 底部 toast 说清楚复制了哪个 —— 眼睛再确认
 function copyText(text, button) {
+  // 防连点：复制流程进行中（1.2 秒内）再点直接忽略。
+  // 用 data-copying 标记而不是 disabled：按钮不会"死掉"，焦点不丢，键盘 Tab 也不跳走；
+  // 连点不会叠 toast、不会把文案改乱（连续操作不出错的关键就在这一行）。
+  if (button.getAttribute('data-copying') === '1') return;
+  button.setAttribute('data-copying', '1');
   function done() {
     var old = button.textContent;
     button.textContent = '已复制 ✓';
-    button.disabled = true;
+    button.classList.add('copied'); // 绿色胶囊 + pop 动画（style.css）
+    showToast('已复制「' + (text || '内容') + '」到剪贴板');
     setTimeout(function () {
       button.textContent = old;
-      button.disabled = false;
+      button.classList.remove('copied');
+      button.removeAttribute('data-copying');
     }, 1200);
   }
   if (navigator.clipboard && navigator.clipboard.writeText) {
