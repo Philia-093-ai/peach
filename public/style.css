@@ -217,6 +217,66 @@ select:focus, input:focus {
   transform: translate(-50%, 0);
 }
 
+/* ── Day 12：结果区筛选（chips + 计数 + 无结果） ──
+   规则来源：项目内 Skill .workbuddy/skills/filter-check/SKILL.md
+   Day 9 约束照办：竖向间距只用 8 的倍数；选中态文字色 --peach-deep/--peach-light = 4.6:1（达标） */
+.filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+/* hidden 要压过上面的 display:flex，否则"藏起来"藏不住 */
+.filter-row[hidden] { display: none; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  font-size: 13px;
+  color: var(--ink-soft);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 16px;   /* 撑到 ~36px 高：手指点得中（无障碍要求） */
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.chip:hover { border-color: var(--peach); }
+.chip:focus-visible {
+  outline: 3px solid rgba(181, 68, 45, 0.45);
+  outline-offset: 2px;
+}
+/* 选中态：底色 + 描边 + 字重三重差异——颜色不是唯一线索，色弱用户也分得清 */
+.chip.on {
+  background: var(--peach-light);
+  color: var(--peach-deep);
+  border-color: var(--peach);
+  font-weight: 600;
+}
+.result-count { font-size: 12px; color: var(--ink-soft); }
+
+/* 无结果状态：温和的浅桃色，说清"没有几字的"，并给一条出路 */
+.card.state-nomatch {
+  grid-column: 1 / -1;
+  background: var(--peach-light);
+  border-color: var(--peach-light);
+}
+.card.state-nomatch .name { font-size: 17px; }
+.card .btn-plain {
+  align-self: flex-start;
+  font-size: 12px;
+  color: var(--peach-deep);
+  background: #fff;
+  border: 1px solid var(--peach-deep);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.card .btn-plain:focus-visible {
+  outline: 3px solid rgba(181, 68, 45, 0.45);
+  outline-offset: 2px;
+}
+
 /* 手机：单列，不横向滚动 */
 @media (max-width: 560px) {
   #results { grid-template-columns: 1fr; }

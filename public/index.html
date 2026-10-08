@@ -43,6 +43,14 @@
         <h2>生成结果</h2>
         <span id="quota" class="quota"></span>
       </div>
+      <!-- Day 12：筛选条（按名字字数）。
+           role="group" 告诉读屏"这是一组同类按钮"；计数文字用 role="status" + aria-live="polite"，
+           筛选一变就读出"筛选出几个"，不靠眼睛数卡片。
+           整行默认 hidden：只有手里真有数据时才显示（规则见 .workbuddy/skills/filter-check/SKILL.md） -->
+      <div class="filter-row" id="filter-row" hidden>
+        <div id="filters" class="filters" role="group" aria-label="按名字字数筛选"></div>
+        <p id="result-count" class="result-count" role="status" aria-live="polite"></p>
+      </div>
       <div id="results">
         <div class="card sample">
           <div class="name">浪屿</div>
@@ -58,6 +66,7 @@
   </main>
 
   <script src="/card.js"></script>
+  <script src="/filter.js"></script>
   <script src="/mock.js"></script>
   <script src="/app.js"></script>
 </body>

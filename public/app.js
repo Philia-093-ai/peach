@@ -15,6 +15,10 @@ var btn = document.getElementById('btn');
 var hintEl = document.getElementById('hint');
 var resultsEl = document.getElementById('results');
 var quotaEl = document.getElementById('quota');
+// Day 12：筛选条相关的三个元素
+var filterRow = document.getElementById('filter-row');
+var filtersEl = document.getElementById('filters');
+var countEl = document.getElementById('result-count');
 
 // ---------- 每日额度（localStorage，key 形如 peach_quota_2026-09-26） ----------
 function todayKey() {
@@ -177,6 +181,7 @@ function getData(scene, keyword) {
 
 // 空状态：第一次打开，用示例卡片告诉用户"填这里会出什么"
 function showEmpty() {
+  hideFilter(); // 没数据就不显示筛选条
   resultsEl.textContent = '';
   var card = document.createElement('div');
   card.className = 'card sample';
@@ -202,6 +207,7 @@ function showEmpty() {
 // 加载状态：6 块骨架屏。比喻：菜还没上，先用"假菜模型"把桌面占好，
 // 用户就知道"已经在做了"，而不是"页面坏了"。
 function showLoading() {
+  hideFilter(); // 正在生成：先把筛选条收起来（避免对着一批还没到的卡片筛）
   resultsEl.textContent = '';
   for (var i = 0; i < 6; i++) {
     var sk = document.createElement('div');
@@ -216,13 +222,50 @@ function showLoading() {
   }
 }
 
+// ---------- Day 12：筛选（按名字字数） ----------
+// 心法：筛选只改"显示哪些"，不改"有哪些"。
+// 原始批次存在 lastNames 里，屏幕上那几张卡只是它的一个"视图"——
+// 所以清空筛选一定回得到原样，一个数据都不会丢（这是 Skill 的第 1 条硬规则）。
+// 规则来源：项目内 Skill .workbuddy/skills/filter-check/SKILL.md
+var lastNames = [];
+var activeLen = 0; // 0 = 全部
+
+function setFilter(len) {
+  activeLen = len;
+  renderResults();
+}
+
+function renderResults() {
+  var shown = filterByName(lastNames, activeLen); // filter.js 提供
+  resultsEl.textContent = '';
+  if (shown.length) {
+    renderNameList(resultsEl, shown);
+  } else {
+    // 无结果：说清"没有几字的" + 给出口；筛选条不跟着消失，用户不会被锁在空页面里
+    renderNoMatch(resultsEl, activeLen, lastNames.length, function () { setFilter(0); });
+  }
+  filterRow.hidden = false;
+  renderFilterBar(filtersEl, activeLen, setFilter); // 只更新状态，不重建按钮（焦点不丢）
+  countEl.textContent = countText(shown.length, lastNames.length, activeLen);
+}
+
+// 手里没有数据可筛的时候（初始 / 生成中 / 出错），筛选条整个收起来
+function hideFilter() {
+  filterRow.hidden = true;
+  countEl.textContent = '';
+  resetFilterBar(filtersEl);
+}
+
 // 成功状态：把数据交给 card.js 的可复用组件渲染
 function showLoaded(names) {
-  renderNameList(resultsEl, names);
+  lastNames = names.slice(); // 存下这一批的原始数据（筛选不动它）
+  activeLen = 0;             // 新的一批 → 筛选自动回到「全部」，旧条件不残留
+  renderResults();
 }
 
 // 错误状态：说人话 + 给一个重试按钮，页面绝不出现报错堆栈（A8）
 function showError(msg) {
+  hideFilter(); // 出错时也没有可筛的数据
   resultsEl.textContent = '';
   var card = document.createElement('div');
   card.className = 'card state-error';
