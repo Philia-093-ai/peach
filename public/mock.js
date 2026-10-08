@@ -66,3 +66,28 @@ function mockRequest(scene, keyword) {
     }, MOCK_DELAY);
   });
 }
+
+// ---- Day 13：词库的"假接口"（词库视图在用）----
+// 词库就是本地这份名字库，本来不依赖模型；照样包成"假接口"，
+// 是为了让词库视图的四种状态（空 / 加载 / 错误 / 正常）能像真接口一样被演练一遍。
+// 比喻：真实接口是"外卖"，词库是"自家冰箱"——但先按点外卖的流程练一遍，
+//       等以后词库真搬到服务器上，页面代码一行都不用改。
+var MOCK_LIB_FORCE_ERROR = false; // 改成 true：词库每次请求都失败，用来看"错误状态"
+
+function libraryRequest(scene, keyword) {
+  return new Promise(function (resolve, reject) {
+    setTimeout(function () {
+      if (MOCK_LIB_FORCE_ERROR) {
+        reject(new Error('mock：模拟一次词库加载失败'));
+        return;
+      }
+      var batch = MOCK_BATCHES[scene] || [];
+      var kw = (keyword || '').trim();
+      // 关键词在名字或寓意里出现就算命中；没填关键词就返回整个场景
+      var names = batch.filter(function (item) {
+        return !kw || item.name.indexOf(kw) > -1 || item.meaning.indexOf(kw) > -1;
+      });
+      resolve({ ok: true, scene: scene, keyword: kw, names: names });
+    }, MOCK_DELAY);
+  });
+}

@@ -277,8 +277,92 @@ select:focus, input:focus {
   outline-offset: 2px;
 }
 
+/* ── Day 13：多视图（导航 + 面包屑 + 词库列表 + 空状态） ──
+   Day 9 约束照办：间距只用 8 的倍数；文字色都用已验过对比度的变量 */
+
+/* 顶部导航：粘在顶上，翻到哪都点得到 */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid var(--line);
+}
+.nav-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.nav-brand { font-size: 15px; font-weight: 700; color: var(--peach-deep); text-decoration: none; }
+.nav-links { display: flex; gap: 8px; }
+.nav-links a {
+  font-size: 14px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: 8px 12px;   /* 撑到 ~38px 高：手指点得中 */
+  border-radius: 999px;
+}
+.nav-links a:hover { background: var(--peach-light); color: var(--peach-deep); }
+/* 当前所在的那一项：底色 + 字重，读屏侧还有 aria-current="page"（颜色不是唯一线索） */
+.nav-links a[aria-current="page"] {
+  background: var(--peach-light);
+  color: var(--peach-deep);
+  font-weight: 600;
+}
+.nav-links a:focus-visible {
+  outline: 3px solid rgba(181, 68, 45, 0.45);
+  outline-offset: 2px;
+}
+
+/* 视图：同一本书的不同页。hidden 要能压过任何 display 设置 */
+.view[hidden] { display: none; }
+
+/* 面包屑：告诉用户"我在哪、怎么回去"（第一项就是回生成器） */
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+.crumb a { color: var(--peach-deep); text-decoration: none; }
+.crumb a:hover { text-decoration: underline; }
+.crumb a:focus-visible {
+  outline: 3px solid rgba(181, 68, 45, 0.45);
+  outline-offset: 2px;
+}
+
+/* 视图标题区（比首页 hero 矮一点，因为上面已经有导航了） */
+.view-head { padding: 8px 0 16px; }
+.view-head h1 { font-size: 26px; margin-bottom: 8px; }
+
+/* 词库列表：和结果区同一套网格 */
+.lib-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+
+/* 词库的空状态（请求成功但列表为空）：温和的浅桃色，说清"为什么空"+给一条出路 */
+.card.state-empty {
+  grid-column: 1 / -1;
+  background: var(--peach-light);
+  border-color: var(--peach-light);
+}
+.card.state-empty .name { font-size: 17px; }
+
+/* 关于页 */
+.about p { font-size: 14px; margin-bottom: 8px; }
+.about p:last-child { margin-bottom: 0; }
+.about-list { margin: 0 0 16px 16px; font-size: 14px; }
+.about-list li { margin-bottom: 8px; }
+.about a { color: var(--peach-deep); }
+
 /* 手机：单列，不横向滚动 */
 @media (max-width: 560px) {
-  #results { grid-template-columns: 1fr; }
+  #results, .lib-list { grid-template-columns: 1fr; }
   h1 { font-size: 24px; }
+  .nav-inner { flex-wrap: wrap; }
+  .view-head h1 { font-size: 22px; }
 }

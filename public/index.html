@@ -3,71 +3,150 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>peach · 中文名字生成器</title>
+  <title>中文名字生成器 · peach</title>
   <!-- Day 11：补一个内联 SVG 图标（🍑 和站标一致）。之前浏览器每次自动请求 /favicon.ico 都 404，
        控制台一直有一条报错；用 data URI 不用加新文件，404 消失，测试"零报错"才干净 -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍑</text></svg>">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <!-- Day 13：顶部导航——三个视图的统一入口。
+       <nav> + aria-label 让读屏知道"这是一组导航"；
+       当前所在的那一项由 router.js 打上 aria-current="page"（肉眼看到的是桃色高亮） -->
+  <nav class="nav" aria-label="主导航">
+    <div class="nav-inner">
+      <a class="nav-brand" href="#/gen">🍑 peach</a>
+      <div class="nav-links">
+        <a href="#/gen" data-nav="gen">生成器</a>
+        <a href="#/library" data-nav="library">词库</a>
+        <a href="#/about" data-nav="about">关于</a>
+      </div>
+    </div>
+  </nav>
+
   <main class="wrap">
-    <header class="hero">
-      <div class="logo">🍑</div>
-      <p class="site">peach · AI 小工具站</p>
-      <h1>中文名字生成器</h1>
-      <p class="slogan">写下你的想法，10 秒拿到一批带寓意的名字——不注册，打开就用。</p>
-    </header>
+    <!-- ================= 视图 1：生成器（Day 7 起的主工具） ================= -->
+    <section id="view-gen" class="view" data-view="gen">
+      <header class="hero">
+        <div class="logo">🍑</div>
+        <p class="site">peach · AI 小工具站</p>
+        <h1>中文名字生成器</h1>
+        <p class="slogan">写下你的想法，10 秒拿到一批带寓意的名字——不注册，打开就用。</p>
+      </header>
 
-    <form id="form" class="panel" autocomplete="off">
-      <label class="field">
-        <span class="label">用在哪儿</span>
-        <select id="scene">
-          <option value="品牌" selected>品牌</option>
-          <option value="店铺">店铺</option>
-          <option value="宠物">宠物</option>
-          <option value="网络昵称">网络昵称</option>
-        </select>
-      </label>
+      <form id="form" class="panel" autocomplete="off">
+        <label class="field">
+          <span class="label">用在哪儿</span>
+          <select id="scene">
+            <option value="品牌" selected>品牌</option>
+            <option value="店铺">店铺</option>
+            <option value="宠物">宠物</option>
+            <option value="网络昵称">网络昵称</option>
+          </select>
+        </label>
 
-      <label class="field">
-        <span class="label">关键词 <em>（1–20 个字，说说想表达什么）</em></span>
-        <input id="keyword" type="text" maxlength="40" placeholder="例如：海边咖啡店，安静治愈">
-      </label>
+        <label class="field">
+          <span class="label">关键词 <em>（1–20 个字，说说想表达什么）</em></span>
+          <input id="keyword" type="text" maxlength="40" placeholder="例如：海边咖啡店，安静治愈">
+        </label>
 
-      <button id="btn" type="submit">✨ 生成名字</button>
-      <p id="hint" class="hint" role="alert"></p>
-    </form>
+        <button id="btn" type="submit">✨ 生成名字</button>
+        <p id="hint" class="hint" role="alert"></p>
+      </form>
 
-    <section class="results">
-      <div class="results-head">
-        <h2>生成结果</h2>
-        <span id="quota" class="quota"></span>
-      </div>
-      <!-- Day 12：筛选条（按名字字数）。
-           role="group" 告诉读屏"这是一组同类按钮"；计数文字用 role="status" + aria-live="polite"，
-           筛选一变就读出"筛选出几个"，不靠眼睛数卡片。
-           整行默认 hidden：只有手里真有数据时才显示（规则见 .workbuddy/skills/filter-check/SKILL.md） -->
-      <div class="filter-row" id="filter-row" hidden>
-        <div id="filters" class="filters" role="group" aria-label="按名字字数筛选"></div>
-        <p id="result-count" class="result-count" role="status" aria-live="polite"></p>
-      </div>
-      <div id="results">
-        <div class="card sample">
-          <div class="name">浪屿</div>
-          <div class="meaning">示例：关键词「海边咖啡店，安静治愈」→ 想象一座海上的小岛，安静得只听得见浪。</div>
-          <div class="sample-note">👆 这是示例。填好上方的表单，点「生成名字」就能拿到你的第一批。</div>
+      <section class="results">
+        <div class="results-head">
+          <h2>生成结果</h2>
+          <span id="quota" class="quota"></span>
         </div>
+        <!-- Day 12：筛选条。role=group 说明"这是一组同类按钮"；计数文字用 role=status
+             让读屏在筛选变化时也播报"筛选出几个" -->
+        <div class="filter-row" id="filter-row" hidden>
+          <div id="filters" class="filters" role="group" aria-label="按名字字数筛选"></div>
+          <p id="result-count" class="result-count" role="status" aria-live="polite"></p>
+        </div>
+        <div id="results">
+          <div class="card sample">
+            <div class="name">浪屿</div>
+            <div class="meaning">示例：关键词「海边咖啡店，安静治愈」→ 想象一座海上的小岛，安静得只听得见浪。</div>
+            <div class="sample-note">👆 这是示例。填好上方的表单，点「生成名字」就能拿到你的第一批。</div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ================= 视图 2：词库（Day 13 新增，承载四种状态） ================= -->
+    <section id="view-library" class="view" data-view="library" hidden>
+      <nav class="crumb" aria-label="面包屑">
+        <a href="#/gen">peach</a><span class="crumb-sep">/</span><span aria-current="page">词库</span>
+      </nav>
+      <header class="view-head">
+        <h1>名字词库</h1>
+        <p class="slogan">按场景翻名字库，看到喜欢的直接复制走。目前是本地示例数据（第 3 周换成真数据源）。</p>
+      </header>
+
+      <div class="panel">
+        <label class="field">
+          <span class="label">场景</span>
+          <select id="lib-scene">
+            <option value="品牌" selected>品牌</option>
+            <option value="店铺">店铺</option>
+            <option value="宠物">宠物</option>
+            <option value="网络昵称">网络昵称</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="label">搜名字 <em>（名字或寓意里带这几个字就算命中）</em></span>
+          <input id="lib-search" type="text" maxlength="20" placeholder="例如：海、甜、慢">
+        </label>
+      </div>
+
+      <section class="results">
+        <div class="results-head">
+          <h2>词库列表</h2>
+          <!-- Day 13：这块文字跟生成器一样是 role=status —— 列表换了一批，读屏也要被通知 -->
+          <span id="lib-meta" class="result-count" role="status" aria-live="polite"></span>
+        </div>
+        <div id="lib-list" class="lib-list"></div>
+      </section>
+    </section>
+
+    <!-- ================= 视图 3：关于 ================= -->
+    <section id="view-about" class="view" data-view="about" hidden>
+      <nav class="crumb" aria-label="面包屑">
+        <a href="#/gen">peach</a><span class="crumb-sep">/</span><span aria-current="page">关于</span>
+      </nav>
+      <header class="view-head">
+        <h1>关于 peach</h1>
+        <p class="slogan">一个中文名字生成小工具站：打开就用，不注册。</p>
+      </header>
+
+      <div class="panel about">
+        <p><strong>现在有哪几个视图</strong></p>
+        <ul class="about-list">
+          <li><a href="#/gen">生成器</a> —— 写关键词，拿一批带寓意的名字（可以按字数筛选）</li>
+          <li><a href="#/library">词库</a> —— 按场景翻名字库，喜欢的直接复制</li>
+          <li>关于 —— 就是你正在看的这一页</li>
+        </ul>
+        <p><strong>免费额度</strong></p>
+        <p>每天可以免费生成 5 次，隔天自动恢复；复制名字不占额度。</p>
+        <p><strong>数据说明</strong></p>
+        <p>现在是本地示例数据（Day 8 起用假接口练状态），第 3 周会接上真正的文本模型。</p>
+        <p><strong>源码</strong></p>
+        <p><a href="https://github.com/Philia-093-ai/peach" target="_blank" rel="noopener">github.com/Philia-093-ai/peach</a></p>
       </div>
     </section>
 
     <footer class="foot">
-      每日免费生成 5 次 · 明天自动恢复 · peach（Day 8 mock 数据版）
+      每日免费生成 5 次 · 明天自动恢复 · peach（Day 13 多视图版）
     </footer>
   </main>
 
   <script src="/card.js"></script>
   <script src="/filter.js"></script>
   <script src="/mock.js"></script>
+  <script src="/library.js"></script>
+  <script src="/router.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
