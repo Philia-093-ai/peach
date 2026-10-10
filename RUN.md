@@ -1,6 +1,20 @@
-# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补）
+# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版）
 
 > 一句话：一条命令启动，浏览器打开 <http://localhost:3000> 就能用。
+
+## Day 15 增补：公网地址（CloudBase · 第 3 周）
+
+| 什么 | 地址 |
+| --- | --- |
+| 前端页面（手机可开） | https://apple-1-d2g1zk4836ce03980-1503730028.tcloudbaseapp.com/ |
+| /api/health 体检接口 | https://apple-1-d2g1zk4836ce03980-1503730028.ap-shanghai.app.tcloudbase.com/api/health |
+
+- 环境：CloudBase 体验版 `apple-1-d2g1zk4836ce03980`（上海，到期 2027-04-10）
+- 手机第一次打开会先看到「确定访问」提示页（CloudBase 测试域名的拦截页），点一下即可，此后不再出现
+- 部署方式：`tcb fn deploy health --httpFn`（Web 函数，代码在 `cloudfunctions/health/`）+ `tcb hosting deploy public /`；配置见 `cloudbaserc.json`
+- 第 3 周接口约定：`docs/api-contract.md`（改接口先改它）
+
+---
 
 ## Day 8 增补：mock 数据开关（public/mock.js）
 

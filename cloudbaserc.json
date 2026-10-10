@@ -1,0 +1,16 @@
+{
+  "$schema": "https://static.cloudbase.net/cli/cloudbaserc.schema.json",
+  "envId": "apple-1-d2g1zk4836ce03980",
+  "functionRoot": "cloudfunctions",
+  "functions": [
+    {
+      "name": "health",
+      "timeout": 5,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "description": "peach · /api/health 体检接口（Day 15）",
+      "installDependency": false,
+      "ignore": ["node_modules", "node_modules/**/*", "*.md", ".DS_Store"]
+    }
+  ]
+}

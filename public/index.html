@@ -7,7 +7,10 @@
   <!-- Day 11：补一个内联 SVG 图标（🍑 和站标一致）。之前浏览器每次自动请求 /favicon.ico 都 404，
        控制台一直有一条报错；用 data URI 不用加新文件，404 消失，测试"零报错"才干净 -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍑</text></svg>">
-  <link rel="stylesheet" href="/style.css">
+  <!-- Day 15：资源引用从根绝对路径（/style.css）改为相对路径（./style.css）。
+       原因：部署到公网静态托管后，站点可能挂在子路径下，绝对路径会 404；
+       相对路径无论挂在哪一级都对，且本地 node server.js 行为完全一致 -->
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <!-- Day 13：顶部导航——三个视图的统一入口。
@@ -142,11 +145,11 @@
     </footer>
   </main>
 
-  <script src="/card.js"></script>
-  <script src="/filter.js"></script>
-  <script src="/mock.js"></script>
-  <script src="/library.js"></script>
-  <script src="/router.js"></script>
-  <script src="/app.js"></script>
+  <script src="./card.js"></script>
+  <script src="./filter.js"></script>
+  <script src="./mock.js"></script>
+  <script src="./library.js"></script>
+  <script src="./router.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>

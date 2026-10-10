@@ -1,0 +1,11 @@
+{
+  "name": "peach-health",
+  "version": "1.0.0",
+  "description": "peach · /api/health 体检接口云函数（Day 15）",
+  "main": "index.js",
+  "private": true,
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {}
+}

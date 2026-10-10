@@ -1,0 +1,7 @@
+#!/bin/bash
+# scf_bootstrap —— CloudBase Web 函数启动脚本（Day 15）
+# 作用：Web 函数不是"被平台调用一次"，而是"启动一个常驻的小服务"，
+#       平台把公网请求反向代理到这个端口上。所以这里必须自己起服务。
+# 约定：云函数容器里 Node 在 /var/lang/node<大版本>/bin/node，服务监听 9000 端口。
+export PORT=9000
+/var/lang/node18/bin/node index.js
