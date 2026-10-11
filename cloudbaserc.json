@@ -8,7 +8,7 @@
       "timeout": 10,
       "runtime": "Nodejs18.15",
       "handler": "index.main",
-      "description": "peach · /api/* 读接口（Day 17：/api/health + /api/scenes + /api/library）",
+      "description": "peach · /api/* 接口（Day 17：GET /api/health + /api/scenes + /api/library；Day 18：POST /api/names）",
       "installDependency": false,
       "ignore": ["node_modules", "node_modules/**/*", "*.md", ".DS_Store"]
     }

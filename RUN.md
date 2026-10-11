@@ -1,6 +1,25 @@
-# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库 · Day 17 读接口）
+# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库 · Day 17 读接口 · Day 18 写接口）
 
 > 一句话：一条命令启动，浏览器打开 <http://localhost:3000> 就能用。
+
+## Day 18 增补：第一个写接口（POST /api/names）
+
+往词库里**写**一个名字（投稿收录）。这是项目里第一个会改数据库的接口。
+
+| 什么 | 说明 |
+| --- | --- |
+| `POST /api/names` | 请求体 `{"scene":"品牌","name":"云栖","meaning":"…"}`；成功 **201** `{ok:true,data:{…}}` |
+| 必填 | `scene`（须是 scenes 表里的场景）、`name`（1–20 字）；`meaning` 可选（超 30 字服务端截断） |
+| 重复提交 | **409**「「品牌」场景下已经有「云栖」这个名字了」——由数据库唯一约束 `names_scene_name_key` 兜底 |
+| 缺必填 / 错误输入 | **400** 中文人话（「缺少必填字段：name（名字）」「名字最多 20 个字」「没有「xx」这个场景」…） |
+| 请求体上限 | 4 KB，超了 **413**；不是合法 JSON → **400**；用 GET 访问它 → **405** |
+
+- 服务端日志（Day 18 余力加练）：每次请求打一行 `[peach-api][req] {"method":"POST","path":"/names","status":201,"ms":83,"note":"created id=79"}`，云函数日志里可查
+- 本地自测 + 公网验证全记录：`docs/day18-verify.md`；契约：`docs/api-contract.md` 第 5 节
+- 数据现状：`names` 表 = seed 36 行 + Day 18 投稿 1 行（id 79「云栖」）
+- 今日未做：`PATCH` / `DELETE`（第 4 周）、批量写入、`/api/generate` 接真模型、前端投稿表单
+
+---
 
 ## Day 17 增补：GET 读接口（词库真数据上线）
 
