@@ -50,10 +50,11 @@ function loadLibrary() {
   var kw = libSearch().value.trim();
 
   showLibLoading(scene);
-  libraryRequest(scene, kw) // 假接口由 mock.js 提供（第 3 周可换成真接口）
-    .then(function (data) {
-      if (data && data.ok && data.names && data.names.length) {
-        showLibLoaded(data.names, scene, kw);
+  libraryRequest(scene, kw) // 数据源在 mock.js 里切换：Day 17 起默认走真接口（云数据库）
+    .then(function (res) {
+      // Day 17：字段名从 names 改成 data —— 和云端读接口 /api/library 的返回形状对齐
+      if (res && res.ok && res.data && res.data.length) {
+        showLibLoaded(res.data, scene, kw);
       } else {
         showLibEmpty(scene, kw); // 拿回来了，但是个空列表 —— 这也是一种"明确的状态"
       }

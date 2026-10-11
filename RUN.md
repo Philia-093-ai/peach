@@ -1,6 +1,24 @@
-# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库）
+# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库 · Day 17 读接口）
 
 > 一句话：一条命令启动，浏览器打开 <http://localhost:3000> 就能用。
+
+## Day 17 增补：GET 读接口（词库真数据上线）
+
+页面词库从此**读云数据库**，不再是本地写死的示例数据。
+
+| 什么 | 地址 |
+| --- | --- |
+| GET /api/scenes（场景字典） | https://apple-1-d2g1zk4836ce03980-1503730028.ap-shanghai.app.tcloudbase.com/api/scenes |
+| GET /api/library（词库查询） | 同上域名 `/api/library?scene=品牌&keyword=&limit=` |
+
+- 云函数：`cloudfunctions/api/`（Web 函数，`/api` 路由 → WEB_SCF `api`；`health` 函数保留但路由已切到 `api`）
+- 接口怎么读库：经 CloudBase 数据网关（HTTPS + API Key），**Key 只存在函数环境变量里**，仓库与日志里都没有
+- 前端开关：`public/mock.js` 里 `LIB_USE_REAL_API = true`（改 `false` 可回退到假词库演练四种状态）
+- 部署：`tcb fn deploy api --force` + `tcb hosting deploy public`；路由用 `tcb routes edit`（不要用 `--httpFn --path`，有 CLI bug，见 `docs/day17-verify.md` 坑 1）
+- 踩坑记录（路径传递 / CORS / 密钥）：`docs/day17-verify.md`
+- 今日未做：业务写入接口（收藏写入留到 Day 18）、改表结构
+
+---
 
 ## Day 15 增补：公网地址（CloudBase · 第 3 周）
 

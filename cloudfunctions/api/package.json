@@ -1,0 +1,11 @@
+{
+  "name": "peach-api",
+  "version": "1.1.0",
+  "description": "peach · /api/* 读接口云函数（Day 17：词库读真库）",
+  "main": "index.js",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {}
+}

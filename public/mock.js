@@ -3,10 +3,23 @@
 // 比喻：mock 数据就像餐厅后厨的"假菜模型"——菜还没会做，但上菜的托盘、
 //       菜单、传菜流程全都可以先练熟。第 3 周只把 mockRequest 换成真 fetch。
 
-// ---- 两个开关（改这里就能看到不同状态，不用改别的代码）----
-var MOCK_MODE = true;         // true = 用本地假数据；第 3 周接真 API 时改成 false
+// ==== Day 17 的重大变化（只读这一段就够）====
+// 词库（libraryRequest）**已经换成真接口**：数据来自云数据库（Day 16 建的 scenes / names 表）。
+//   · 生成器（mockRequest）仍在用假数据 —— 真接口 /api/generate 要到 Day 18+ 才接；
+//   · 所以开关分成了两套，互不影响：LIB_USE_REAL_API 管词库，MOCK_MODE 管生成器；
+//   · 想回到"假词库"演练四种状态？把 LIB_USE_REAL_API 改成 false 即可。
+// 比喻：以前词库是"自家冰箱里的存货"（本地写死），今天换成了"楼下超市现买"
+//       （云数据库现查）—— 货架上有什么，取决于超市（=数据库）里真正上了什么货。
+
+// ---- 生成器的开关（改这里就能看到不同状态，不用改别的代码）----
+var MOCK_MODE = true;         // true = 用本地假数据；接真 /api/generate 时改成 false
 var MOCK_DELAY = 800;         // 模拟网络延迟（毫秒）：让"加载状态"肉眼可见
 var MOCK_FORCE_ERROR = false; // 改成 true：每次请求都失败，用来看"错误状态"
+
+// ---- Day 17：词库的真接口开关 ----
+var LIB_USE_REAL_API = true;  // true = 词库读云数据库（真数据）；false = 回到下面的假词库
+// 真接口的地址：静态托管和接口不在同一个域名上，所以这里必须写完整地址（绝对路径）。
+var API_BASE = 'https://apple-1-d2g1zk4836ce03980-1503730028.ap-shanghai.app.tcloudbase.com/api';
 
 // ---- 假数据：每个场景 6 个名字（和真实接口的返回形状一模一样）----
 var MOCK_BATCHES = {
@@ -74,7 +87,32 @@ function mockRequest(scene, keyword) {
 //       等以后词库真搬到服务器上，页面代码一行都不用改。
 var MOCK_LIB_FORCE_ERROR = false; // 改成 true：词库每次请求都失败，用来看"错误状态"
 
+// Day 17：词库的统一入口。真接口 / 假接口在这里分岔，上层（library.js）一行都不用改。
 function libraryRequest(scene, keyword) {
+  return LIB_USE_REAL_API ? realLibraryRequest(scene, keyword) : fakeLibraryRequest(scene, keyword);
+}
+
+// ---- Day 17 新增：真接口 —— 直接问云端要数据（数据来自 Day 16 建的 scenes / names 两张表）----
+// 比喻：以前打开自家冰箱拿剩菜（本地假数据），现在改成打电话给楼下超市现买（云端现查）。
+function realLibraryRequest(scene, keyword) {
+  var url = API_BASE + '/library'
+    + '?scene=' + encodeURIComponent(scene)
+    + '&keyword=' + encodeURIComponent((keyword || '').trim());
+  // 这个请求没加任何自定义请求头 → 属于浏览器的"简单请求"，不会先发一趟预检
+  return fetch(url)
+    .then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status); // 400 / 404 / 500 一律当失败
+      return res.json();
+    })
+    .then(function (body) {
+      if (!body || !body.ok) throw new Error((body && body.error) || '词库加载失败');
+      // 把接口的形状统一成"上层认识的样子"：{ ok, scene, keyword, data }
+      return { ok: true, scene: body.scene, keyword: body.keyword, data: body.data || [] };
+    });
+}
+
+// ---- Day 13 的假接口（留着当对照；把 LIB_USE_REAL_API 改成 false 就回到它）----
+function fakeLibraryRequest(scene, keyword) {
   return new Promise(function (resolve, reject) {
     setTimeout(function () {
       if (MOCK_LIB_FORCE_ERROR) {
@@ -87,7 +125,7 @@ function libraryRequest(scene, keyword) {
       var names = batch.filter(function (item) {
         return !kw || item.name.indexOf(kw) > -1 || item.meaning.indexOf(kw) > -1;
       });
-      resolve({ ok: true, scene: scene, keyword: kw, names: names });
+      resolve({ ok: true, scene: scene, keyword: kw, data: names });
     }, MOCK_DELAY);
   });
 }

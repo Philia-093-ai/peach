@@ -4,11 +4,11 @@
   "functionRoot": "cloudfunctions",
   "functions": [
     {
-      "name": "health",
-      "timeout": 5,
+      "name": "api",
+      "timeout": 10,
       "runtime": "Nodejs18.15",
       "handler": "index.main",
-      "description": "peach · /api/health 体检接口（Day 15）",
+      "description": "peach · /api/* 读接口（Day 17：/api/health + /api/scenes + /api/library）",
       "installDependency": false,
       "ignore": ["node_modules", "node_modules/**/*", "*.md", ".DS_Store"]
     }
