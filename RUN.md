@@ -1,4 +1,4 @@
-# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版）
+# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库）
 
 > 一句话：一条命令启动，浏览器打开 <http://localhost:3000> 就能用。
 
@@ -13,6 +13,24 @@
 - 手机第一次打开会先看到「确定访问」提示页（CloudBase 测试域名的拦截页），点一下即可，此后不再出现
 - 部署方式：`tcb fn deploy health --httpFn`（Web 函数，代码在 `cloudfunctions/health/`）+ `tcb hosting deploy public /`；配置见 `cloudbaserc.json`
 - 第 3 周接口约定：`docs/api-contract.md`（改接口先改它）
+
+---
+
+## Day 16 增补：数据库（CloudBase PostgreSQL · 第 3 周）
+
+数据库来了（`TECH_DESIGN.md` 第 2 节「本期没有数据库」自今日起作废）。
+
+| 什么 | 在哪 |
+| --- | --- |
+| 数据模型设计 | `docs/day16-data-model.md` |
+| 建表 / 种子 / 验证脚本 | `db/schema.sql`、`db/seed.sql`、`db/verify.sql` |
+| 怎么跑 | `node db/run-sql.js db/schema.sql`（依次跑 schema → seed → verify） |
+| 详细的执行记录 | `docs/day16-select-verify.md` |
+| 数据库本体 | CloudBase PostgreSQL 17 · 环境 `apple-1-d2g1zk4836ce03980` · schema `public` |
+
+- 两张表：`scenes`（场景字典，6 行）+ `names`（名字词条，36 行），靠 **`names.scene_id` → `scenes.id`** 关联
+- 看数据：腾讯云开发控制台 → 环境 `apple-1-…` → 「数据库」→ `public` → `scenes` / `names`
+- 今日未做：**没写任何接口、没动前端**（读接口 Day 17 开始）
 
 ---
 
