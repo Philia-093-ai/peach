@@ -1,4 +1,4 @@
-// index.js —— peach /api/* 接口（Day 17 读接口 · Day 18 写接口 · Day 19 分层重构）
+// index.js —— peach /api/* 接口（Day 17 读接口 · Day 18 写接口 · Day 19 分层重构 · Day 22 改/删/恢复）
 //
 // Day 19 做了什么：**把"查数据库"那段代码从这里搬到了隔壁 db.js。**
 //   现在这个文件只干两件事：
@@ -26,18 +26,29 @@
 //   认证靠函数环境变量里的 API Key。**所有细节都在 db.js**，本文件只 require 它。
 //
 // 三、接口清单（路径和字段都是契约，Day 19 一个都没动）
-//   GET  /api/health            体检（Day 15 就有，保留）
-//   GET  /api/scenes            场景字典：scenes 表原样端出来
-//   GET  /api/library?scene=&keyword=&limit=
-//                               词库查询：靠 names.scene_id → scenes.id 这根线
-//   POST /api/names             （Day 18 新增）往词库写一个名字
+//   GET    /api/health            体检（Day 15 就有，保留）
+//   GET    /api/scenes            场景字典：scenes 表原样端出来
+//   GET    /api/library?scene=&keyword=&limit=
+//                                 词库查询：靠 names.scene_id → scenes.id 这根线
+//   POST   /api/names             （Day 18 新增）往词库写一个名字
+//   PATCH  /api/names/:id         （Day 22 新增）改一条：只改传进来的字段
+//   DELETE /api/names/:id?confirm=<名字>&mode=soft|hard
+//                                 （Day 22 新增）删一条：**默认软删除**，可恢复
+//   POST   /api/names/:id/restore （Day 22 新增）把软删除的那条找回来
+//
+// 四、Day 22 的一条硬规矩：删除必须"两把钥匙"
+//   「新增」错了顶多留一条废数据，「删除」错了就没了 —— 所以删除这条路设了两道确认：
+//     ① 服务端：必须带 ?confirm=<这个名字>，且必须和库里那条的名字一字不差，
+//        少一个字都不删（200 字 → 不是"能不能删"的问题，是"你到底删的是哪条"）；
+//     ② 前端：词库页的删除按钮点一下只变成「确认删除？」，再点一下才真的发请求。
+//   再加一层兜底：默认走**软删除**（只翻标记，数据还在），真要抹掉得显式写 mode=hard。
 // ---------------------------------------------------------------------------
 
 const http = require('http');
 const db = require('./db'); // ← Day 19：数据访问层（"查数据库"的代码都在这儿）
 
 const SERVICE = 'peach-api';
-const VERSION = '1.3.0'; // Day 19：分层重构版（接口形状没变，这个号只是"这批代码的出厂标记"）
+const VERSION = '1.4.0'; // Day 22：加上改/删/恢复三个接口（分成三层的老结构没动）
 
 // 各种上限 —— 上限必须有，否则 ?limit=999999 / 超长请求体会被人拿来拖垮服务
 const DEFAULT_LIMIT = 40;   // Day 17 余力加练：GET /api/library 的默认条数
@@ -91,6 +102,71 @@ function countChars(s) {
 // 只保留要给前端看的字段（表格里多余的列不往外端）
 function pickName(row) {
   return { id: row.id, name: row.name, meaning: row.meaning, char_count: row.char_count };
+}
+
+// ---------------------------------------------------------------------------
+// Day 22 的小工具：把「地址里的编号」这件事收拢在一处
+// ---------------------------------------------------------------------------
+
+// 从路径里取出 /names/<编号> 的编号；不是这个形状就返回 null
+//   /names/12        → '12'
+//   /names/12/restore→ null（restore 由 POST 分支单独比对）
+function matchNameId(pathname) {
+  const m = /^\/names\/([^\/]+)$/.exec(pathname || '');
+  return m ? m[1] : null;
+}
+
+// 编号必须是正整数：'12' → 12；'abc' / '-3' / '1.5' / '1e3' → null
+//   为什么自己判而不靠数据库：地址写错了要说"地址写错了"（400），
+//   而不是含混地回一句 404，让人以为是"数据没了"。
+function parseId(raw) {
+  if (!/^\d+$/.test(String(raw || ''))) return null;
+  const n = Number(raw);
+  return n > 0 ? n : null;
+}
+
+// 地址里的编号不对时，统一回这一句（并且示范一个正确写法）
+function badId(raw, res, ctx) {
+  return send(res, 400, {
+    ok: false,
+    error: '地址里的编号不对：需要一个正整数，例如 /api/names/12（你给的是「' + raw + '」）',
+  }, ctx, 'bad id');
+}
+
+// 读请求体 + 把 413/400 翻译成中文（POST 与 PATCH 共用，行为与 Day 18 完全一致）
+//   返回 { payload } 或 null（null 表示已经回过错误响应了，调用方直接 return）
+async function readBody(req, res, ctx) {
+  try {
+    return { payload: await readJsonBody(req) };
+  } catch (e) {
+    if (e && e.peachHttp === 413) {
+      send(res, 413, { ok: false, error: '请求内容太大' }, ctx, 'body too large');
+      return null;
+    }
+    if (e && e.peachHttp === 400) {
+      send(res, 400, { ok: false, error: '请求格式不对，请刷新页面重试' }, ctx, 'bad json');
+      return null;
+    }
+    throw e;
+  }
+}
+
+// 把库里的 scene_id 翻成前端看得懂的场景名（响应里带场景名，前端才好显示"哪个场景下的"）
+async function sceneNameOf(sceneId) {
+  const s = await db.findSceneById(sceneId);
+  return s ? s.name : null;
+}
+
+// 一条词条 → 响应里的 data（POST / PATCH / DELETE / restore 共用同一张脸）
+async function namePayload(row, sceneName) {
+  return {
+    id: row.id,
+    scene: sceneName || (await sceneNameOf(row.scene_id)),
+    name: row.name,
+    meaning: row.meaning,
+    char_count: row.char_count,
+    created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +343,176 @@ async function handleCreateName(payload, res, ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// 接口 5：PATCH /api/names/:id —— 改一条（Day 22 的主接口之一）
+//
+// 「PATCH」和「PUT」的区别，一句话：PATCH 是"补一块"，PUT 是"整份替换"。
+//   这里用 PATCH：只想改寓意就只传 meaning，名字一个字都不会被动到。
+//
+// 顺序和 POST 一样，一步挡一种脏数据：
+//   ① 编号：地址里那个必须是正整数（400）
+//   ② 字段：至少要有一个可改字段（name / meaning）；改名字要过"非空 + ≤20 字"
+//   ③ 存在性：这条还在不在？软删掉的也算不在 → 404（说清楚"可能已经被删了"）
+//   ④ 一致性：改了名字要**重算 char_count**（服务端自己数，不信前端）
+//   ⑤ 唯一性：同场景里改成已有的名字 → 交给数据库部分唯一索引挡 → 409 中文
+// ---------------------------------------------------------------------------
+async function handlePatchName(id, payload, res, ctx) {
+  // ② 字段层：只认 name / meaning 两个可改字段
+  const hasName = Object.prototype.hasOwnProperty.call(payload, 'name');
+  const hasMeaning = Object.prototype.hasOwnProperty.call(payload, 'meaning');
+  if (!hasName && !hasMeaning) {
+    return send(res, 400, {
+      ok: false,
+      error: '没有要修改的字段（可改：name 名字 / meaning 寓意）',
+    }, ctx, 'no updatable field');
+  }
+
+  const fields = {};
+
+  if (hasName) {
+    const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+    if (!name) {
+      return send(res, 400, { ok: false, error: '名字不能改成空的' }, ctx, 'empty name');
+    }
+    const nameLen = countChars(name);
+    if (nameLen > NAME_MAX) {
+      return send(res, 400, { ok: false, error: '名字最多 ' + NAME_MAX + ' 个字' }, ctx, 'name too long');
+    }
+    fields.name = name;
+    fields.char_count = nameLen; // ④ 改名字必须同时重算字数，否则词库筛选会筛错
+  }
+
+  let truncated = false;
+  if (hasMeaning) {
+    let meaning = typeof payload.meaning === 'string' ? payload.meaning.trim() : '';
+    if (countChars(meaning) > MEANING_MAX) {
+      meaning = Array.from(meaning).slice(0, MEANING_MAX).join('');
+      truncated = true;
+    }
+    fields.meaning = meaning;   // 空字符串是允许的：那就是"这条暂时没有寓意"
+  }
+
+  // ③ 存在性：软删掉的那条也算不存在（它不该被改，要改先恢复）
+  const row = await db.findNameById(id);
+  if (!row) {
+    return send(res, 404, {
+      ok: false,
+      error: '没有编号为 ' + id + ' 的名字（它可能已经被删掉了）',
+    }, ctx, 'not found');
+  }
+
+  // ⑤ 落库
+  const upd = await db.updateName(id, fields);
+
+  if (upd.status === 200 || upd.status === 204) {
+    let fresh = Array.isArray(upd.body) ? upd.body[0] : null;
+    if (!fresh) fresh = await db.findNameById(id); // 网关没带回新行就自己读一次（双保险）
+    return send(res, 200, {
+      ok: true,
+      data: await namePayload(Object.assign({}, row, fresh || {}), null),
+    }, ctx, 'updated id=' + id + (truncated ? ' (meaning truncated)' : ''));
+  }
+
+  // 改名撞上同场景里已有的名字（部分唯一索引 names_scene_name_live_key 挡下的）
+  if (upd.status === 409 || String((upd.body && upd.body.code) || '').indexOf('23505') > -1) {
+    return send(res, 409, {
+      ok: false,
+      error: '「' + (await sceneNameOf(row.scene_id) || '这个场景') + '」里已经有一个叫「' + fields.name + '」的名字了',
+    }, ctx, 'duplicate');
+  }
+
+  throw new Error('update failed status=' + upd.status + ' body=' + JSON.stringify(upd.body).slice(0, 300));
+}
+
+// ---------------------------------------------------------------------------
+// 接口 6：DELETE /api/names/:id —— 删一条（Day 22 的主接口之二 · 今天要掌握的那件事）
+//
+// **为什么删除比新增更容易出事**：新增错了，多一行废数据，删掉就完事；删除错了，数据没了，
+// 用户的东西找不回来。所以这条路设了两道确认 + 一层兜底：
+//   ① 服务端确认：必须带 ?confirm=<这条的名字>，且和库里一字不差 → 否则 400，不删
+//      （防的是"脚本少写了个条件""改地址栏手抖"这类误删）
+//   ② 前端确认：删除按钮点一下只变「确认删除？」，再点一下才真发请求（人这一侧的一道）
+//   ③ 兜底：默认 **软删除**（只把 is_deleted 翻成 true，数据还在，restore 能找回来）；
+//      真要抹掉必须显式写 mode=hard —— 危险动作要"明说"才做得成。
+//
+// 回执里带上被删的那条（id / 场景 / 名字 / 寓意）：删除是破坏性操作，
+// 至少让调用方留下"我删了什么"的证据。
+// ---------------------------------------------------------------------------
+async function handleDeleteName(id, q, res, ctx) {
+  const confirm = (q.confirm || '').trim();
+  const mode = q.mode === 'hard' ? 'hard' : 'soft';
+
+  // ③ 先查（软删掉的也算不存在 → 再删一次会是 404，而不是"删了个空气"）
+  const row = await db.findNameById(id);
+  if (!row) {
+    return send(res, 404, {
+      ok: false,
+      error: '没有编号为 ' + id + ' 的名字（它可能已经被删掉了）',
+    }, ctx, 'not found');
+  }
+
+  // ① 服务端确认：把要删的名字原样写一遍，写错了就不删
+  if (!confirm) {
+    return send(res, 400, {
+      ok: false,
+      error: '删除需要确认：请在地址里带上 ?confirm=名字，且要和库里的名字完全一致',
+    }, ctx, 'confirm missing');
+  }
+  if (confirm !== row.name) {
+    return send(res, 400, {
+      ok: false,
+      error: '确认值「' + confirm + '」和编号 ' + id + ' 的名字「' + row.name + '」不一致，没有删除',
+    }, ctx, 'confirm mismatch');
+  }
+
+  const del = mode === 'hard' ? await db.hardDeleteName(id) : await db.softDeleteName(id);
+  if (del.status >= 200 && del.status < 300) {
+    return send(res, 200, {
+      ok: true,
+      mode: mode,
+      recoverable: mode === 'soft',
+      data: await namePayload(row, null),
+    }, ctx, (mode === 'hard' ? 'hard-deleted' : 'soft-deleted') + ' id=' + id);
+  }
+
+  throw new Error('delete failed status=' + del.status + ' body=' + JSON.stringify(del.body).slice(0, 300));
+}
+
+// ---------------------------------------------------------------------------
+// 接口 7：POST /api/names/:id/restore —— 把软删除的那条找回来（余力加练的落点）
+//   只有软删除才谈得上"找回"；已经真删掉的行是查不到的（那正是它不可逆的地方）。
+// ---------------------------------------------------------------------------
+async function handleRestoreName(id, res, ctx) {
+  const row = await db.findDeletedNameById(id);
+  if (!row) {
+    return send(res, 404, {
+      ok: false,
+      error: '没有编号为 ' + id + ' 的已删除名字（只有软删除的才找得回来）',
+    }, ctx, 'not found');
+  }
+
+  const back = await db.restoreName(id);
+  if (back.status === 200 || back.status === 204) {
+    let fresh = Array.isArray(back.body) ? back.body[0] : null;
+    if (!fresh) fresh = await db.findNameById(id);
+    return send(res, 200, {
+      ok: true,
+      restored: true,
+      data: await namePayload(Object.assign({}, row, fresh || {}), null),
+    }, ctx, 'restored id=' + id);
+  }
+
+  // 恢复时如果同场景里已经又有一个同名的"活着的"名字，就会撞唯一索引（409）
+  if (back.status === 409 || String((back.body && back.body.code) || '').indexOf('23505') > -1) {
+    return send(res, 409, {
+      ok: false,
+      error: '「' + (await sceneNameOf(row.scene_id) || '这个场景') + '」里现在已经有一个「' + row.name + '」了，先把那条处理掉再恢复',
+    }, ctx, 'duplicate on restore');
+  }
+
+  throw new Error('restore failed status=' + back.status + ' body=' + JSON.stringify(back.body).slice(0, 300));
+}
+
+// ---------------------------------------------------------------------------
 // 请求体读取：带 4 KB 上限（契约第 0 节的硬约定）
 //   返回 Promise<对象>；超限抛 {peachHttp:413}，JSON 坏抛 {peachHttp:400}，
 //   由上层翻译成中文响应。
@@ -339,28 +585,29 @@ async function route(req, res, ctx) {
     if (pathname === '/scenes') return await handleScenes(res, ctx);
     if (pathname === '/library') return await handleLibrary(q, res, ctx);
     // 知道这个地址存在，但读它没意义 → 405（比 404 更能说清楚问题）
-    if (pathname === '/names') {
-      return send(res, 405, { ok: false, error: '该地址只接受 POST 请求' }, ctx, 'method not allowed');
+    // Day 22：/names 和 /names/<编号> 都是"只写"的地址，顺手把正确用法写出来
+    if (pathname === '/names' || matchNameId(pathname)) {
+      return send(res, 405, {
+        ok: false,
+        error: '该地址只接受写操作：新增用 POST /api/names，改/删用 PATCH / DELETE /api/names/<编号>',
+      }, ctx, 'method not allowed');
     }
     return send(res, 404, { ok: false, error: '接口不存在' }, ctx, 'not found');
   }
 
-  // ---- 写：POST ----
+  // ---- 写：POST（新增一个名字 / 恢复一个被软删除的名字）----
   if (req.method === 'POST') {
+    // POST /api/names/<编号>/restore —— 把软删除的那条找回来
+    const mRestore = /^\/names\/([^\/]+)\/restore$/.exec(pathname);
+    if (mRestore) {
+      const id = parseId(mRestore[1]);
+      if (!id) return badId(mRestore[1], res, ctx);
+      return await handleRestoreName(id, res, ctx);
+    }
     if (pathname === '/names') {
-      let payload;
-      try {
-        payload = await readJsonBody(req);
-      } catch (e) {
-        if (e && e.peachHttp === 413) {
-          return send(res, 413, { ok: false, error: '请求内容太大' }, ctx, 'body too large');
-        }
-        if (e && e.peachHttp === 400) {
-          return send(res, 400, { ok: false, error: '请求格式不对，请刷新页面重试' }, ctx, 'bad json');
-        }
-        throw e;
-      }
-      return await handleCreateName(payload, res, ctx);
+      const b = await readBody(req, res, ctx);
+      if (!b) return;
+      return await handleCreateName(b.payload, res, ctx);
     }
     // 读接口不接受 POST
     if (pathname === '/health' || pathname === '/scenes' || pathname === '/library') {
@@ -369,8 +616,53 @@ async function route(req, res, ctx) {
     return send(res, 404, { ok: false, error: '接口不存在' }, ctx, 'not found');
   }
 
-  // 其它动词（PUT / PATCH / DELETE …）：第 4 周才做，今天明确拒绝
-  return send(res, 405, { ok: false, error: '不支持的请求方式' }, ctx, 'method not allowed');
+  // ---- 改：PATCH /api/names/<编号>（Day 22）----
+  if (req.method === 'PATCH') {
+    if (pathname === '/names') {
+      return send(res, 400, {
+        ok: false,
+        error: '改哪一条？请在地址里带上编号，例如 PATCH /api/names/12',
+      }, ctx, 'id missing');
+    }
+    const raw = matchNameId(pathname);
+    if (raw !== null) {
+      const id = parseId(raw);
+      if (!id) return badId(raw, res, ctx);
+      const b = await readBody(req, res, ctx);
+      if (!b) return;
+      return await handlePatchName(id, b.payload, res, ctx);
+    }
+    if (pathname === '/health' || pathname === '/scenes' || pathname === '/library') {
+      return send(res, 405, { ok: false, error: '该地址只接受 GET 请求' }, ctx, 'method not allowed');
+    }
+    return send(res, 404, { ok: false, error: '接口不存在' }, ctx, 'not found');
+  }
+
+  // ---- 删：DELETE /api/names/<编号>?confirm=<名字>&mode=soft|hard（Day 22）----
+  if (req.method === 'DELETE') {
+    if (pathname === '/names') {
+      return send(res, 400, {
+        ok: false,
+        error: '删哪一条？请在地址里带上编号和确认值，例如 DELETE /api/names/12?confirm=浪屿',
+      }, ctx, 'id missing');
+    }
+    const raw = matchNameId(pathname);
+    if (raw !== null) {
+      const id = parseId(raw);
+      if (!id) return badId(raw, res, ctx);
+      return await handleDeleteName(id, q, res, ctx);
+    }
+    if (pathname === '/health' || pathname === '/scenes' || pathname === '/library') {
+      return send(res, 405, { ok: false, error: '该地址只接受 GET 请求' }, ctx, 'method not allowed');
+    }
+    return send(res, 404, { ok: false, error: '接口不存在' }, ctx, 'not found');
+  }
+
+  // 其它动词（PUT 等）：不支持（Day 22 起支持 GET / POST / PATCH / DELETE 四种）
+  return send(res, 405, {
+    ok: false,
+    error: '不支持的请求方式（支持 GET / POST / PATCH / DELETE）',
+  }, ctx, 'method not allowed');
 }
 
 const server = http.createServer(function (req, res) {

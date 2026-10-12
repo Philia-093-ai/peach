@@ -1,4 +1,4 @@
-// db.js —— 数据访问层（Day 19 从 index.js 里拆出来的「查数据库」那段代码）
+// db.js —— 数据访问层（Day 19 从 index.js 里拆出来的「查数据库」那段代码 · Day 22 加改/删/恢复）
 //
 // 这一层只回答一个问题：**「怎么跟数据库说话？」**
 //   它不知道什么是"接口"、什么是"HTTP 状态码"、什么是"前端"；
@@ -32,6 +32,10 @@ const REST_BASE = 'https://' + ENV_ID + '.api.tcloudbasegateway.com/v1/rdb/rest'
 
 // API Key（service_role）：只在服务端用，任何情况下都不返回给前端
 const API_KEY = process.env.CLOUDBASE_API_KEY || '';
+
+// Day 22：软删除之后，"读数据"一律只认活着的行（行还在、只是标记成已删除）
+//   写成常量而不是到处手抄，是为了不漏：所有查询都从这一个地方引用它。
+const LIVE = 'is_deleted=eq.false';
 
 // ---------------------------------------------------------------------------
 // 底层：一次网关调用
@@ -90,16 +94,23 @@ async function findSceneByName(name) {
   return rows.length ? rows[0] : null;
 }
 
+// 按编号找场景（Day 22）：拿到 scene_id 之后要把它翻回场景名给前端看
+async function findSceneById(id) {
+  const rows = await dbSelect('scenes', 'select=id,name&id=eq.' + id);
+  return rows.length ? rows[0] : null;
+}
+
 // 某场景下的所有词条（靠 Day 16 定的那根线：names.scene_id → scenes.id）
+// Day 22：加上 LIVE —— 软删掉的名字从此不会再被读出来
 function listNamesByScene(sceneId) {
-  return dbSelect('names', 'select=id,name,meaning,char_count&scene_id=eq.' + sceneId);
+  return dbSelect('names', 'select=id,name,meaning,char_count&scene_id=eq.' + sceneId + '&' + LIVE);
 }
 
 // 某场景下、某个名字那一条（写入后的"读回"用）：找不到返回 null
 async function findNameInScene(sceneId, name) {
   const rows = await dbSelect('names',
     'select=id,name,meaning,char_count,created_at&scene_id=eq.' + sceneId +
-    '&name=eq.' + encodeURIComponent(name));
+    '&name=eq.' + encodeURIComponent(name) + '&' + LIVE);
   return rows.length ? rows[0] : null;
 }
 
@@ -109,11 +120,65 @@ function insertName(row) {
   return gwCall('POST', '/names', row);
 }
 
+// ---------------------------------------------------------------------------
+// Day 22：改 / 删 / 恢复（第 4 周）
+//   一句话原则：**这一层不判断"该不该做"，只负责"怎么做"**——
+//   删除是软删还是真删、确认够不够，都是业务层的事；这里只提供动作。
+// ---------------------------------------------------------------------------
+
+// 「活着的行」这个条件 Day 22 起每个查询都要带（常量 LIVE 定义在文件顶部）：
+//   软删除 = 行还在、只是 is_deleted 翻成了 true；查询一律过滤掉它，
+//   于是"删掉的名字"对用户来说就是真的消失了（但数据一点没丢）。
+
+// 按编号取一条（软删掉的算"不存在"：业务上它确实不该再被读到）
+async function findNameById(id) {
+  const rows = await dbSelect('names',
+    'select=id,scene_id,name,meaning,char_count,created_at&id=eq.' + id + '&' + LIVE);
+  return rows.length ? rows[0] : null;
+}
+
+// 按编号取一条【含已软删除的】（只有"恢复"这一步需要看得到它们）
+async function findDeletedNameById(id) {
+  const rows = await dbSelect('names',
+    'select=id,scene_id,name,meaning,char_count,created_at&id=eq.' + id + '&is_deleted=eq.true');
+  return rows.length ? rows[0] : null;
+}
+
+// 部分更新（PATCH 语义：只改传进来的字段，没传的原样不动）
+//   和 insertName 一样**原样交回网关结果** { status, body }，让业务层去判 200 / 404 / 409。
+function updateName(id, fields) {
+  return gwCall('PATCH', '/names?id=eq.' + id + '&' + LIVE, fields);
+}
+
+// 软删除：把标记翻成 true + 记下删除时间（行留着，可恢复）
+function softDeleteName(id) {
+  return gwCall('PATCH', '/names?id=eq.' + id + '&' + LIVE,
+    { is_deleted: true, deleted_at: new Date().toISOString() });
+}
+
+// 真删除：把行从表里抹掉（不可逆 —— 只有显式要 hard 才会走到这里）
+function hardDeleteName(id) {
+  return gwCall('DELETE', '/names?id=eq.' + id);
+}
+
+// 恢复：把软删除标记翻回 false、清掉删除时间
+function restoreName(id) {
+  return gwCall('PATCH', '/names?id=eq.' + id + '&is_deleted=eq.true',
+    { is_deleted: false, deleted_at: null });
+}
+
 module.exports = {
   listScenes: listScenes,
   listSceneNames: listSceneNames,
   findSceneByName: findSceneByName,
+  findSceneById: findSceneById,
   listNamesByScene: listNamesByScene,
   findNameInScene: findNameInScene,
+  findNameById: findNameById,
+  findDeletedNameById: findDeletedNameById,
   insertName: insertName,
+  updateName: updateName,
+  softDeleteName: softDeleteName,
+  hardDeleteName: hardDeleteName,
+  restoreName: restoreName,
 };

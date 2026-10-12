@@ -89,7 +89,51 @@ function showLibLoaded(names, scene, kw) {
     ? '「' + scene + '」里匹配「' + kw + '」的名字：' + names.length + ' 个'
     : '「' + scene + '」词库共 ' + names.length + ' 个名字';
   libClear();
-  renderNameList(libList(), names); // 复用 Day 8 的可复用卡片 + Day 11 的复制反馈
+  // 复用 Day 8 的可复用卡片 + Day 11 的复制反馈；Day 22 起多传一个"删除"处理函数
+  renderNameList(libList(), names, { onDelete: libDelete });
+}
+
+// ---------- Day 22：删除（两步确认）----------
+// 今天要掌握的那件事：**删除比新增更容易出事** —— 新增错了是"多一行废数据"，
+// 删除错了是"用户的东西没了"。所以这里在**人这一侧**再加一道确认：
+//   第一次点「删除」→ 按钮变成「确认删除「xxx」？」（armed 状态），**不发请求**；
+//   再点一次才真发请求。4 秒不点自动收回，避免"变红了忘在那儿"之后误点。
+// （另一道在服务端：DELETE 必须带 ?confirm=名字，见 index.js。两道加起来才叫"确认"。）
+var libDeleteTimer = null;
+
+function armDelete(btn, name) {
+  btn.setAttribute('data-armed', '1');
+  btn.className = 'copy del armed';
+  btn.textContent = '确认删除「' + name + '」？';
+  clearTimeout(libDeleteTimer);
+  libDeleteTimer = setTimeout(function () { disarmDelete(btn); }, 4000);
+}
+
+function disarmDelete(btn) {
+  if (!btn) return;
+  btn.removeAttribute('data-armed');
+  btn.className = 'copy del';
+  btn.textContent = '删除';
+}
+
+function libDelete(item, btn) {
+  if (!btn.getAttribute('data-armed')) {   // 第一步：只是"亮红"确认，不发请求
+    armDelete(btn, item.name);
+    return;
+  }
+  clearTimeout(libDeleteTimer);            // 第二步：真删
+  btn.disabled = true;
+  btn.textContent = '删除中…';
+  deleteNameRequest(item.id, item.name)
+    .then(function (res) {
+      showToast('已删除「' + item.name + '」' + (res && res.recoverable ? '· 数据仍保留在云端，可恢复' : ''));
+      loadLibrary();                       // 重新拉一次列表：页面上的数字永远等于服务端的真相
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      disarmDelete(btn);
+      showToast((err && err.message) || '删除失败，请稍后再试');
+    });
 }
 
 function showLibEmpty(scene, kw) {

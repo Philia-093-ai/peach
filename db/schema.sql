@@ -59,3 +59,31 @@ COMMENT ON COLUMN names.created_at  IS '创建时间（带时区）；默认取�
 --       所以「按场景查名字」本身就已经很快，不需要再单独给 scene_id 建索引。
 -- 下面这条是给「按场景 + 按字数筛选」准备的（Day 17 读接口会用到）：
 CREATE INDEX IF NOT EXISTS names_scene_char_idx ON names (scene_id, char_count);
+
+
+-- ============================================================================
+-- Day 22 增补：软删除（余力加练）——「删除」不再真的把行抹掉
+-- 第 4 周
+--
+-- 为什么：新增一条数据，错了顶多是一条废数据；删掉一条数据，错了**就没了**。
+--         所以给 names 加一个 is_deleted 标记：删除 = 把标记翻成 true，
+--         查询一律带上 is_deleted=eq.false —— 用户看到的是"删掉了"，
+--         数据库里那行还在，删错了随时能找回来（restore）。
+-- ============================================================================
+
+ALTER TABLE names ADD COLUMN IF NOT EXISTS is_deleted  boolean     NOT NULL DEFAULT false;
+ALTER TABLE names ADD COLUMN IF NOT EXISTS deleted_at  timestamptz;
+
+COMMENT ON COLUMN names.is_deleted IS '软删除标记：true = 已删除（行还在，随时可恢复）；查询一律过滤 is_deleted=false，所以删过的名字不会再被读出来';
+COMMENT ON COLUMN names.deleted_at IS '删除时间：软删除时打上时间戳，恢复（restore）时清空；留一条「什么时候被我删的」线索';
+
+-- 把 (scene_id, name) 的唯一约束换成「只约束没被删的行」的部分唯一索引：
+--   删过的名字可以重新投稿（新起一行），而活着的名字依旧不能重复 —— 409 的保护一分没少。
+ALTER TABLE names DROP CONSTRAINT IF EXISTS names_scene_name_key;
+CREATE UNIQUE INDEX IF NOT EXISTS names_scene_name_live_key
+  ON names (scene_id, name) WHERE is_deleted = false;
+
+-- 查询索引同步改成"只索引活着的行"（读接口永远带 is_deleted=false，走这个更小更快的索引）
+DROP INDEX IF EXISTS names_scene_char_idx;
+CREATE INDEX IF NOT EXISTS names_scene_char_live_idx
+  ON names (scene_id, char_count) WHERE is_deleted = false;

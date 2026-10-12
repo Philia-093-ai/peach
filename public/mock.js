@@ -187,3 +187,22 @@ function previewRequest(scene, limit) {
   return apiGet('/library?scene=' + encodeURIComponent(scene) + '&limit=' + (limit || 4))
     .then(function (r) { return r.data || []; });
 }
+
+// ==== Day 22 新增：删除一个名字（走真接口 DELETE）====
+// 比喻：删除是把东西**扔进碎纸机**，不是"从抽屉里拿出来放一边"——
+//       所以服务端要求把"要删的那个名字"原样再念一遍（?confirm=），念错了就不删。
+//       前端这两道确认（先点一次亮红、再点一次才发）是"人这一侧"的那道。
+function deleteNameRequest(id, name) {
+  var url = API_BASE + '/names/' + encodeURIComponent(id)
+    + '?confirm=' + encodeURIComponent(name);
+  return fetch(url, { method: 'DELETE' })
+    .then(function (res) {
+      return res.json().catch(function () { return null; }).then(function (body) {
+        if (!res.ok || !body || !body.ok) {
+          // 服务端的中文人话直接往上抛，页面 toast 原样显示（绝不显示状态码让人猜）
+          throw new Error((body && body.error) || ('删除失败（HTTP ' + res.status + '）'));
+        }
+        return body; // { ok, mode:'soft', recoverable:true, data:{...} }
+      });
+    });
+}

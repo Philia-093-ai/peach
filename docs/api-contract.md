@@ -1,4 +1,4 @@
-# api-contract.md｜peach 接口契约（Day 18 版）
+# api-contract.md｜peach 接口契约（Day 22 版）
 
 > 一句话：这份文档是**前后端之间的合同**。
 > 合同签好了，前端和后端就能**各自独立干活**——前端按合同造假数据（mock），后端按合同写真逻辑，谁也不等谁，合起来还能一次对上。
@@ -6,14 +6,15 @@
 > 比喻：装修时水电工和木工不天天开会。他们先约定好「插座在这个高度、孔径这么大」，然后各干各的。
 > 这个约定就是接口契约；`/api/generate`、`/api/health`、`/api/scenes`、`/api/library`、`/api/names` 就是那几个插座。
 
-- 版本：v1.2（Day 18：新增第一个**写入**接口 `POST /api/names`）
+- 版本：v1.3（Day 22：新增 `PATCH /api/names/:id`、`DELETE /api/names/:id`、`POST /api/names/:id/restore`——names 具备完整的增删改查）
 - 上游文档：`PRD.md`（验收标准 A1–A9）、`TECH_DESIGN.md`（技术路线）、`docs/day16-data-model.md`（两张表的字段）
-- 今天状态：**`/api/health`、`/api/scenes`、`/api/library` 三个 GET 接口 + `POST /api/names` 一个写接口已部署并验证**；`/api/generate` 仍是"合同已签、后端待建"（第 4 周接真）
-- 生效范围：Day 16–20 所有前后端联调都以本文件为准；改接口先改本文件再改代码
+- 今天状态：**三个 GET + `POST /api/names` + Day 22 的改/删/恢复都已部署并验证**；`/api/generate` 仍是"合同已签、后端待建"（第 4 周接真）
+- 生效范围：Day 16 起所有前后端联调都以本文件为准；改接口先改本文件再改代码
+- Day 22 的一条硬约定：**删除必须带确认**——`DELETE /api/names/:id?confirm=<名字>`（服务端锁）+ 前端点两次（人这一侧的锁），默认软删除（可恢复），真删要显式 `?mode=hard`
 
 ---
 
-## 0. 通用约定（两个接口都遵守）
+## 0. 通用约定（所有接口都遵守）
 
 | 项 | 约定 | 为什么 |
 | --- | --- | --- |
@@ -32,7 +33,7 @@
 | 200 | 成功 | 正常渲染 | 否 |
 | 201 | **创建成功**（Day 18 起，写接口用） | 当成功处理（`res.ok` 为 true），拿 `data.id` | 否 |
 | 400 | 请求本身不对（关键词空 / 超 20 字 / JSON 格式坏 / 缺必填字段） | 提示 `error` 里那句话，**不重试**（重试也一样） | 是 |
-| 404 | 路径不存在 | 说明白是地址错了 | 是 |
+| 404 | **编号不存在**（改/删/恢复找不到那一条；已软删除的对外也算不存在）或路径不存在 | 说明白"没有这条 / 地址错了" | 是 |
 | 405 | 请求方法不对（对该路径用了 POST 之外的动词） | 属于前端 bug，开发期就该发现 | 是 |
 | 409 | **冲突：要写的东西已经存在**（Day 18 起，重复提交） | 提示 `error` 里那句话，**不重试** | 是 |
 | 413 | 请求体超过 4 KB | 提示内容太大 | 是（提示不重试） |
@@ -339,7 +340,42 @@ Content-Type: application/json
 
 ---
 
-## 6. 「公网地址第一次打开时，第一个想确认的是哪一件事？」
+## 6. 接口六/七/八：`PATCH / DELETE /api/names/:id` + `POST /api/names/:id/restore`（Day 22 已部署 ✅）
+
+到这里 `names` 的**增删改查四类操作闭环了**：POST 增 → GET 查 → PATCH 改 → DELETE 删（软）。
+
+### 6.1 `PATCH /api/names/:id` —— 改一条（部分更新）
+
+| 项 | 约定 |
+| --- | --- |
+| 可改字段 | **只有 `name` 和 `meaning`**（场景、编号不许改）；一个字段都不传 → 400 |
+| 改名字 | 非空、≤20 字；**`char_count` 由服务端同步重算**（前端传的一律不信） |
+| 改寓意 | ≤30 字，超了服务端截断；空字符串合法（=这条暂时没有寓意） |
+| 成功 | **200** `{ok:true,data:{id,scene,name,meaning,char_count,created_at}}` |
+| 撞名 | 同场景改成已有的名字 → **409**（唯一索引 `names_scene_name_live_key` 兜底） |
+| 找不到 | 编号不是正整数 → **400**；不存在（含已软删除）→ **404** |
+
+### 6.2 `DELETE /api/names/:id?confirm=<名字>&mode=soft|hard` —— 删一条
+
+| 项 | 约定 |
+| --- | --- |
+| **服务端确认** | 必须带 `?confirm=<这条的名字>`，且和库里**一字不差**；不带 / 写错 → **400**，一条不删 |
+| 默认 = 软删除 | `mode` 不写就是 `soft`：只翻 `is_deleted` 标记 + 记删除时间，**数据还在**，`restore` 能找回 |
+| 真删除 | 显式 `?mode=hard` 才把行从表里抹掉，**不可恢复**（restore 会 404） |
+| 成功 | **200** `{ok:true, mode:"soft"/"hard", recoverable:true/false, data:{被删的那条}}` ——回执让调用方留下"我删了什么"的证据 |
+| 找不到 | **404**（已软删除的对外算不存在：再删一次 / 再改一次都是 404） |
+
+### 6.3 `POST /api/names/:id/restore` —— 把软删除的找回来
+
+- 成功 **200** `{ok:true, restored:true, data:{…}}`；只有软删除的找得回来（真删的行已经不在表里 → 404）
+- 恢复时同场景已经有同名的"活着的"行 → **409**（先把那条处理掉再恢复）
+
+### 6.4 数据库侧（Day 22 的迁移，`db/schema.sql` 追加段）
+
+- `names` 新增 `is_deleted`（默认 false）与 `deleted_at`；所有查询一律 `is_deleted=eq.false`
+- 唯一约束换成**部分唯一索引** `(scene_id, name) WHERE is_deleted = false`：删过的名字可以重新投稿，活着的名字依旧不能重复
+
+## 7. 「公网地址第一次打开时，第一个想确认的是哪一件事？」
 
 > 这是 Day 15 的问题。答案是：**先确认 `/api/health` 通不通。**
 
@@ -357,7 +393,7 @@ Content-Type: application/json
 
 ---
 
-## 7. 契约冻结与变更规则
+## 8. 契约冻结与变更规则
 
 | 规则 | 内容 |
 | --- | --- |
@@ -366,8 +402,9 @@ Content-Type: application/json
 | 兼容底线 | 加字段可以（前端忽略未知字段）；**删字段、改字段含义、改状态码 = 破坏性变更**，必须前后端同时改 |
 | 今天不做 | 鉴权、限流、分页、多语言、GraphQL —— MVP 用不上（见 PRD 2.2 不做清单） |
 
-## 8. 变更记录
+## 9. 变更记录
 
+- 2026-10-12（Day 22）：v1.3。新增三个写接口——`PATCH /api/names/:id`（部分更新 name/meaning，char_count 服务端重算）、`DELETE /api/names/:id?confirm=<名字>&mode=soft|hard`（**删除必须带确认**，默认软删除可恢复，`mode=hard` 才真删）、`POST /api/names/:id/restore`（找回软删除的行）。数据库加 `is_deleted` / `deleted_at` 两列，唯一约束换成部分唯一索引（删过的名字可重新投稿）。老接口（三个 GET + POST）形状零变化；`/api/health` 的 version 升到 **1.4.0** 作为上线标记。
 - 2026-10-12（Day 21）：**无接口变更**（周验收日）。用一条独立通道把第 3 周契约整体复核了一遍：`/api/health`、`/api/scenes`、`/api/library`、`POST /api/names` 全部按本文档的形状响应（200/201/409/400），实测见 `docs/day21-peer-check.md`。第 4 周第一项仍是把 `/api/generate` 的后端建出来。
 - 2026-10-12（Day 20）：**无接口变更**。前端新增一个接口消费方——首页「名字库实时数据」区（`public/live.js`），并发调用 `GET /api/health`（自检 + 服务端时间）、`GET /api/scenes`、`GET /api/library?limit=1`（每场景一次取 `total` 求和）与 `GET /api/library?limit=4`（名字预览）。跨域维持 Day 17 的约定：由网关统一回显 Origin，函数不做 CORS。
 

@@ -134,6 +134,24 @@ select:focus, input:focus {
 }
 .card .copy:disabled { opacity: 0.6; cursor: default; }
 
+/* ── Day 22：卡片操作区（复制 + 删除并排）与删除按钮的两步确认观感 ──
+   Day 9 约束照办：间距只用 8 的倍数；
+   .del 用红色系但避开"报警红"：#b5442d / #fff = 5.0:1（小字达标），
+   armed 状态是实心红底白字，和普通状态一眼区分得开。 */
+.card-actions { display: flex; gap: 8px; align-items: center; }
+.card .copy.del {
+  background: #fff;
+  color: #b5442d;
+  border: 1px solid #e8bdb2;
+}
+.card .copy.del.armed {
+  background: #b5442d;
+  color: #fff;
+  border-color: #b5442d;
+  font-weight: 700;
+}
+.card .copy.del:disabled { opacity: 0.55; cursor: default; }
+
 .card.sample { grid-column: 1 / -1; background: var(--peach-light); border-color: var(--peach-light); }
 .card.sample .name { color: var(--peach-deep); }
 .sample-note { font-size: 12px; color: var(--ink-soft); }

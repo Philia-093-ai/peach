@@ -1,6 +1,21 @@
-# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库 · Day 17 读接口 · Day 18 写接口 · Day 19 分层重构 · Day 21 周验收）
+# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库 · Day 17 读接口 · Day 18 写接口 · Day 19 分层重构 · Day 21 周验收 · Day 22 改/删/恢复）
 
 > 一句话：一条命令启动，浏览器打开 <http://localhost:3000> 就能用。
+
+## Day 22 增补：PATCH / DELETE 上线，names 的增删改查闭环了
+
+| 接口 | 说明 |
+| --- | --- |
+| `PATCH /api/names/:id` | 部分更新：只改传的字段（`name` / `meaning`）；改名字时 `char_count` 服务端重算；成功 **200** |
+| `DELETE /api/names/:id?confirm=<名字>&mode=soft\|hard` | **删除必须带确认**：`confirm` 要和库里那名字一字不差（否则 400 一条不删）；默认**软删除**（数据还在，可恢复），`?mode=hard` 才真删（不可恢复）；成功 **200** 回执带被删的那条 |
+| `POST /api/names/:id/restore` | 把软删除的找回来；真删的行已经不在表里 → 404 |
+
+- 数据库：`names` 加 `is_deleted` / `deleted_at`；唯一约束换成**部分唯一索引** `(scene_id,name) WHERE is_deleted=false`——删过的名字可重新投稿，活着的依旧不能重复
+- 前端：词库页每条名字有「删除」按钮，**点第一次只变红问一句（不发请求），再点一次才真删**；生成器页的卡片外观行为和以前完全一样
+- 闭环验证：本地 31 项（30 通过 + 1 次偶发超时，复测通过）+ 公网 15 项全过；删后 GET 里该条消失、软删除能找回、真删后 restore 404，全在 `docs/day22-verify.md`
+- **浏览器注意**：PATCH/DELETE 不是"简单请求"，会先发 OPTIONS 预检；CloudBase 网关按请求方法回显放行，实测通过（探针见 `docs/day22-verify.md` 第 5 节）
+- 部署：`tcb fn deploy api --force`（版本号随代码升到 **1.4.0**）+ `tcb hosting deploy public`；老接口形状零变化
+- 今日未做：批量操作、用户系统、词库页的「编辑」表单（PATCH 目前是纯接口能力）、管理端的软删除清理入口
 
 ## Day 21 增补：第 3 周验收表 + 同伴交叉验证 + 演示提纲
 
