@@ -1,6 +1,25 @@
-# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库 · Day 17 读接口 · Day 18 写接口 · Day 19 分层重构）
+# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库 · Day 17 读接口 · Day 18 写接口 · Day 19 分层重构 · Day 21 周验收）
 
 > 一句话：一条命令启动，浏览器打开 <http://localhost:3000> 就能用。
+
+## Day 21 增补：第 3 周验收表 + 同伴交叉验证 + 演示提纲
+
+今天不写新功能，只交验收材料。**第 3 周结论：20/20 PASS**，缺项 2 项如实标记。
+
+| 交付物 | 在哪 |
+| --- | --- |
+| 周验收表（20 项，逐项带证据链接） | `docs/day21-week3-acceptance.md` |
+| 同伴交叉验证三行结论（可打开 / 可读写 / 无报错） | `docs/day21-peer-check.md` |
+| 演示提纲四段结构 + 彩排记录 | `docs/day21-demo-outline.md` |
+| 三张验收截图 | `docs/day21-acceptance-table-bar.png`、`day21-peer-check-bar.png`、`day21-demo-outline-bar.png` |
+
+- 交叉验证怎么做的：**另写一个脚本（独立通道），只认公网地址、不复用前几天的用例**，按三条判据从头发起——
+  实测：首页 200；`/api/scenes` 6 场景、`/api/library` 7 条；`POST /api/names` 真写入 1 行（201，id=88，验后 SQL 清理回 37 行）、重复投稿 409；全程 0 个 5xx、浏览器控制台 0 条 error
+- 演示彩排：无头浏览器在公网首页把四段流程走了一遍（选场景 → 填关键词 → 生成 1.00 秒出 6 卡 → 复制 toast），控制台 0 报错
+- **缺项（如实）**：① 真人同伴复核未执行（本机没有第二个人，下周第一天按 `day21-peer-check.md` 第 4 节的三条判据点一遍并签名）；② 3 分钟演示视频未录（余力加练，照提纲念即可）
+- 今日未动：云函数、数据库、前端代码（`git status` 里只有 docs 与本文档）
+
+---
 
 ## Day 19 增补：分层重构（拆出数据访问层 db.js）
 
