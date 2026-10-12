@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="790" viewBox="0 0 980 790" font-family="'Microsoft YaHei','PingFang SC',sans-serif">
+  <rect x="0" y="0" width="980" height="790" fill="#f7f8fa"/>
+  <text x="40" y="46" font-size="24" font-weight="700" fill="#1f2328">peach 分层结构（Day 19 重构后）</text>
+  <text x="40" y="74" font-size="14" fill="#6b7280">今天要掌握的答案：「查数据库」这段代码，从 index.js 搬进了新文件 db.js —— 上面两层留在 index.js，数据层独立成档。</text>
+
+  <!-- ======== 左列：分层 ======== -->
+  <!-- ① 前端 -->
+  <rect x="70" y="100" width="520" height="72" rx="12" fill="#ffffff" stroke="#c9d2dc" stroke-width="1.5"/>
+  <text x="95" y="131" font-size="16" font-weight="700" fill="#1f2328">① 前端　public/</text>
+  <text x="95" y="155" font-size="12.5" fill="#6b7280">浏览器里的页面（index.html · app.js · library.js…）</text>
+
+  <line x1="330" y1="172" x2="330" y2="212" stroke="#8a94a1" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="344" y="198" font-size="12" fill="#8a94a1">HTTP 请求（fetch）</text>
+
+  <!-- ② 路由层 -->
+  <rect x="70" y="216" width="520" height="96" rx="12" fill="#eef4ff" stroke="#7fa8e0" stroke-width="1.5"/>
+  <text x="95" y="248" font-size="16" font-weight="700" fill="#0b4f9e">② index.js · 路由层　route()</text>
+  <text x="95" y="272" font-size="12.5" fill="#3b5f8a">像前台：看地址，把请求领到该去的柜台</text>
+  <text x="95" y="294" font-size="12" fill="#5b7ba6" font-family="Consolas,monospace">/library → handleLibrary　　/names(POST) → handleCreateName</text>
+
+  <line x1="330" y1="312" x2="330" y2="352" stroke="#8a94a1" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="344" y="338" font-size="12" fill="#8a94a1">函数调用</text>
+
+  <!-- ③ 业务层 -->
+  <rect x="70" y="356" width="520" height="120" rx="12" fill="#f3f0ff" stroke="#9a86d9" stroke-width="1.5"/>
+  <text x="95" y="388" font-size="16" font-weight="700" fill="#4b3a8f">③ index.js · 业务层　handle*()</text>
+  <text x="95" y="412" font-size="12.5" fill="#5a4a99">像经理：定规矩（必填？超长？场景存在？）＋ 把结果包装成响应</text>
+  <text x="95" y="434" font-size="12" fill="#6f5fb0" font-family="Consolas,monospace">缺必填→400　名字超长→400　重复→409　成功→201</text>
+  <text x="95" y="458" font-size="12" fill="#6f5fb0" font-family="Consolas,monospace">取数只说"要什么"：db.findSceneByName(scene) / db.listNamesByScene(id)</text>
+
+  <line x1="330" y1="476" x2="330" y2="516" stroke="#8a94a1" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="344" y="502" font-size="12" fill="#8a94a1">函数调用（只说"要什么"，不问"怎么查"）</text>
+
+  <!-- ④ 数据层 -->
+  <rect x="70" y="520" width="520" height="120" rx="12" fill="#eafaf0" stroke="#5cb983" stroke-width="2"/>
+  <text x="95" y="552" font-size="16" font-weight="700" fill="#0b7a3b">④ db.js · 数据访问层　🆕 Day 19 从 index.js 拆出</text>
+  <text x="95" y="576" font-size="12.5" fill="#2e6b4f">像档案室管理员：只管数据怎么进出，不问你要它干嘛</text>
+  <text x="95" y="598" font-size="12" fill="#3f8a66" font-family="Consolas,monospace">listScenes() · findSceneByName() · listNamesByScene() · insertName()</text>
+  <text x="95" y="620" font-size="12" fill="#3f8a66">网关地址、API Key、查询串拼法……这些细节全部锁在这一层里</text>
+
+  <line x1="330" y1="640" x2="330" y2="680" stroke="#8a94a1" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="344" y="666" font-size="12" fill="#8a94a1">HTTPS + API Key（经 CloudBase 数据网关）</text>
+
+  <!-- ⑤ 数据库 -->
+  <rect x="70" y="684" width="520" height="72" rx="12" fill="#ffffff" stroke="#c9d2dc" stroke-width="1.5"/>
+  <text x="95" y="715" font-size="16" font-weight="700" fill="#1f2328">⑤ PostgreSQL（CloudBase）</text>
+  <text x="95" y="739" font-size="12.5" fill="#6b7280">scenes 表（场景字典）· names 表（词条）——靠 names.scene_id → scenes.id 关联</text>
+
+  <!-- ======== 右列：回报 ======== -->
+  <rect x="640" y="216" width="300" height="424" rx="12" fill="#ffffff" stroke="#e2e5e9" stroke-width="1.5"/>
+  <text x="662" y="248" font-size="15" font-weight="700" fill="#1f2328">为什么值得拆？</text>
+  <text x="662" y="282" font-size="13" fill="#3b5f8a" font-weight="700">改数据库 → 只动 db.js</text>
+  <text x="662" y="302" font-size="12" fill="#6b7280">换 SDK、换连接串、换表、换库，</text>
+  <text x="662" y="320" font-size="12" fill="#6b7280">业务代码一行都不用动。</text>
+  <text x="662" y="356" font-size="13" fill="#5a4a99" font-weight="700">改接口规矩 → 只动 index.js</text>
+  <text x="662" y="376" font-size="12" fill="#6b7280">必填变可选、加校验、改状态码，</text>
+  <text x="662" y="394" font-size="12" fill="#6b7280">碰都不用碰数据库那层。</text>
+  <line x1="662" y1="416" x2="918" y2="416" stroke="#eef0f3" stroke-width="2"/>
+  <text x="662" y="446" font-size="13" font-weight="700" fill="#0b7a3b">拆分前后对比</text>
+  <text x="662" y="470" font-size="12" fill="#6b7280">之前：dbSelect / dbInsert 和路由、</text>
+  <text x="662" y="488" font-size="12" fill="#6b7280">校验、响应拼装挤在 index.js 一个文件。</text>
+  <text x="662" y="512" font-size="12" fill="#6b7280">现在：index.js（路由＋业务）＋ db.js（数据），</text>
+  <text x="662" y="530" font-size="12" fill="#6b7280">接口的路径、字段、状态码一个没变。</text>
+  <line x1="662" y1="552" x2="918" y2="552" stroke="#eef0f3" stroke-width="2"/>
+  <text x="662" y="582" font-size="12.5" fill="#a15c07" font-weight="700">怎么证明没拆坏？</text>
+  <text x="662" y="606" font-size="12" fill="#6b7280">本地 23 项 ＋ 公网 22 项全接口回归，</text>
+  <text x="662" y="624" font-size="12" fill="#6b7280">全部通过（见 docs/day19-verify.md）。</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#8a94a1"/>
+    </marker>
+  </defs>
+</svg>

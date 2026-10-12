@@ -1,6 +1,23 @@
-# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库 · Day 17 读接口 · Day 18 写接口）
+# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库 · Day 17 读接口 · Day 18 写接口 · Day 19 分层重构）
 
 > 一句话：一条命令启动，浏览器打开 <http://localhost:3000> 就能用。
+
+## Day 19 增补：分层重构（拆出数据访问层 db.js）
+
+接口一个没加、一个没改——今天只动内部结构：**把「查数据库」的代码从 `index.js` 搬进了新文件 `db.js`**。
+
+| 层 | 文件 | 管什么 | 像谁 |
+| --- | --- | --- | --- |
+| 路由层 | `cloudfunctions/api/index.js`（route） | 看地址，把请求领到该去的柜台 | 前台 |
+| 业务层 | `cloudfunctions/api/index.js`（handle*） | 定规矩（必填/长度/场景存在）+ 包装响应 | 经理 |
+| **数据层** | **`cloudfunctions/api/db.js`**（Day 19 新拆） | **只管数据怎么进出**（网关地址、API Key、查询串拼法全锁在这） | 档案室管理员 |
+
+- 业务层取数只说"要什么"：`db.listScenes()` / `db.findSceneByName()` / `db.listNamesByScene()` / `db.insertName()`
+- 分层示意图（余力加练）：`docs/day19-layering.svg`（PNG 版 `day19-layering.png`），说明文档 `docs/day19-layering.md`
+- 回归验证：**本地 23 项 + 公网 22 项全过**，接口路径/字段/状态码零变化；`/api/health` 的 `version` 升到 **1.3.0** 作为"这批代码已上线"的出厂标记（契约形状未动，见 `docs/api-contract.md` 变更记录）
+- 部署：`tcb fn deploy api --force`（COS 上传，整个 `cloudfunctions/api/` 目录打包，`db.js` 会跟着一起上去）
+
+---
 
 ## Day 18 增补：第一个写接口（POST /api/names）
 

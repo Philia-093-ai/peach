@@ -1,16 +1,19 @@
-// index.js —— peach /api/* 接口（Day 17 读接口 · Day 18 加写入接口）
+// index.js —— peach /api/* 接口（Day 17 读接口 · Day 18 写接口 · Day 19 分层重构）
 //
-// 今天要解决的问题：**别人往我库里写东西，我怎么保证写进去的是干净的？**
-//   ① 必填没填 / 名字超长 / JSON 坏掉 / 请求体太大 → 明确拒绝，用中文说清错在哪；
-//   ② 场景名不存在 → 拒绝（否则这条名字会变成挂在空处的孤儿数据）；
-//   ③ 同一个场景里重复写同一个名字 → 拒绝。
-//      注意③不是靠函数里"先查一遍"实现的 —— 那样两个请求同时进来会双双通过。
-//      真正的闸门是数据库中 Day 16 建表时就埋下的唯一约束
-//      names_scene_name_key (scene_id, name)：它是原子的，同一瞬间只可能有一个成功。
-//      函数只负责把数据库的报错（DATABASE_23505）翻译成一句人话。
+// Day 19 做了什么：**把"查数据库"那段代码从这里搬到了隔壁 db.js。**
+//   现在这个文件只干两件事：
+//     ① 路由层（route 函数）—— 看地址，把请求领到该去的柜台；
+//     ② 业务层（handle* 函数）—— 定规矩（必填？超长？场景存在？）+ 把结果包装成响应。
+//   至于"怎么跟数据库说话"，一行都不留在这儿了，全部委托给 db.js（数据访问层）。
 //
-// 一句话记住今天：**前端校验是为了省用户的时间，服务端校验是为了保数据的干净，
-//                 而数据库约束是最后一扇关得上、且关得死的门。**
+//   为什么值得拆（三层比喻，记住这张图就够）：
+//     ┌──────────────────────────────────────────────────────────────┐
+//     │ index.js · 路由层   看地址，领请求到该去的柜台                    │  ← 像前台
+//     │ index.js · 业务层   定规矩（必填/长度/场景存在）+ 包装结果         │  ← 像经理
+//     │ db.js    · 数据层   只管数据怎么进出，不问你要它干嘛              │  ← 像档案室管理员
+//     └──────────────────────────────────────────────────────────────┘
+//   回报：以后要换一种方式连数据库（换 SDK、换连接串、换表、换库），只改 db.js；
+//         换接口规则（必填变可选、加校验），只改本文件的业务层。两边互不牵扯。
 //
 // ---------------------------------------------------------------------------
 // 一、为什么还是 Web 函数（Day 15 踩过的坑，这里再钉一遍）
@@ -18,35 +21,23 @@
 //   平台把公网请求反向代理过来"。所以这里用 Node 内置 http 模块起服务，监听 9000 端口，
 //   平台侧靠 scf_bootstrap 启动它（见同目录）。
 //
-// 二、云函数怎么读写数据库（Day 17 建立的路子）
-//   云函数不走 5432 端口直连，而是通过 CloudBase 的「数据网关」用 HTTPS 读写 PG：
-//     https://<环境ID>.api.tcloudbasegateway.com/v1/rdb/rest/<表名>?<查询条件>
-//   认证靠一把 API Key，存在**函数环境变量** CLOUDBASE_API_KEY 里。
+// 二、云函数怎么读写数据库（Day 17 建立的路子 · Day 19 搬到 db.js）
+//   简单说：不走 5432 直连，而是通过 CloudBase「数据网关」用 HTTPS 读写 PG，
+//   认证靠函数环境变量里的 API Key。**所有细节都在 db.js**，本文件只 require 它。
 //
-//   比喻：数据库是档案室，网关是门口的收发窗口。云函数递一张条子（HTTPS 请求）说明
-//         "我要 names 表里 scene_id=1 的那几行"，窗口核对工作证（API Key）后把档案递出来。
-//         读是 GET 条子，写是 POST 条子（Day 18 新增）。
-//         坏处是：**这把钥匙绝不能出现在前端代码或仓库里**（它是 service_role 身份）。
-//
-// 三、接口清单
+// 三、接口清单（路径和字段都是契约，Day 19 一个都没动）
 //   GET  /api/health            体检（Day 15 就有，保留）
 //   GET  /api/scenes            场景字典：scenes 表原样端出来
 //   GET  /api/library?scene=&keyword=&limit=
 //                               词库查询：靠 names.scene_id → scenes.id 这根线
-//   POST /api/names             （Day 18 新增）往词库写一个名字 —— 第一个写接口
+//   POST /api/names             （Day 18 新增）往词库写一个名字
 // ---------------------------------------------------------------------------
 
 const http = require('http');
+const db = require('./db'); // ← Day 19：数据访问层（"查数据库"的代码都在这儿）
 
 const SERVICE = 'peach-api';
-const VERSION = '1.2.0';
-
-// 环境 ID：云端运行时能从环境变量拿到；本地调试时用默认值兜底
-const ENV_ID = process.env.TCB_ENV || 'apple-1-d2g1zk4836ce03980';
-const REST_BASE = 'https://' + ENV_ID + '.api.tcloudbasegateway.com/v1/rdb/rest';
-
-// API Key（service_role）：只在服务端用，任何情况下都不返回给前端
-const API_KEY = process.env.CLOUDBASE_API_KEY || '';
+const VERSION = '1.3.0'; // Day 19：分层重构版（接口形状没变，这个号只是"这批代码的出厂标记"）
 
 // 各种上限 —— 上限必须有，否则 ?limit=999999 / 超长请求体会被人拿来拖垮服务
 const DEFAULT_LIMIT = 40;   // Day 17 余力加练：GET /api/library 的默认条数
@@ -56,7 +47,7 @@ const NAME_MAX = 20;        // 名字最多 20 个字（契约第 5 节）
 const MEANING_MAX = 30;     // 寓意最多 30 个字（PRD A4）—— 超了截断，不报错
 
 // ---------------------------------------------------------------------------
-// 小工具
+// 小工具（这些属于"业务层"的杂物间，和数据无关）
 // ---------------------------------------------------------------------------
 
 // CORS 不在这里做（Day 17 踩过的坑，记下来）：
@@ -97,39 +88,6 @@ function countChars(s) {
   return Array.from(String(s)).length;
 }
 
-// 通过数据网关查 PG，返回数组（失败就抛错，交给调用方统一兜底）
-async function dbSelect(table, query) {
-  if (!API_KEY) throw new Error('CLOUDBASE_API_KEY is not configured');
-  const url = REST_BASE + '/' + table + (query ? '?' + query : '');
-  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + API_KEY } });
-  if (!r.ok) {
-    const body = await r.text();
-    throw new Error('gateway ' + r.status + ' on ' + table + ': ' + body.slice(0, 200));
-  }
-  return r.json();
-}
-
-// 通过数据网关往 PG 写一行（Day 18 新增）
-// 注意：这里**不把错误当异常抛**，而是把状态码和响应体原样交回去 ——
-//       因为"重复提交"是一种**正常的业务结果**（要翻译成 409 人话），
-//       而不是"服务器坏了"（那才是 500）。
-async function dbInsert(table, row) {
-  if (!API_KEY) throw new Error('CLOUDBASE_API_KEY is not configured');
-  const r = await fetch(REST_BASE + '/' + table, {
-    method: 'POST',
-    headers: {
-      Authorization: 'Bearer ' + API_KEY,
-      'Content-Type': 'application/json; charset=utf-8',
-      Prefer: 'return=representation', // 让网关把刚插进去的那一行回给我们（省一次查询）
-    },
-    body: JSON.stringify(row),
-  });
-  const text = await r.text();
-  let body = text;
-  try { body = JSON.parse(text); } catch (e) { /* 保持原样字符串，便于排查 */ }
-  return { status: r.status, body: body };
-}
-
 // 只保留要给前端看的字段（表格里多余的列不往外端）
 function pickName(row) {
   return { id: row.id, name: row.name, meaning: row.meaning, char_count: row.char_count };
@@ -151,9 +109,11 @@ function handleHealth(res, ctx) {
 
 // ---------------------------------------------------------------------------
 // 接口 2：GET /api/scenes —— 场景字典（scenes 表原样列出）
+//   Day 19 前后对比：以前这里写的是 dbSelect('scenes', 'select=id,name,sort_order&…')，
+//   现在只写 db.listScenes()——"怎么查"交给数据层，"查什么"一句话说清。
 // ---------------------------------------------------------------------------
 async function handleScenes(res, ctx) {
-  const rows = await dbSelect('scenes', 'select=id,name,sort_order&order=sort_order.asc');
+  const rows = await db.listScenes();
   return send(res, 200, { ok: true, count: rows.length, data: rows }, ctx, 'scenes=' + rows.length);
 }
 
@@ -174,22 +134,20 @@ async function handleLibrary(q, res, ctx) {
   if (limit > MAX_LIMIT) limit = MAX_LIMIT;
 
   // ① 场景名 → 场景编号
-  const scenes = await dbSelect('scenes',
-    'select=id,name&name=eq.' + encodeURIComponent(scene));
-  if (!scenes.length) {
+  const sceneRow = await db.findSceneByName(scene);
+  if (!sceneRow) {
     // 说人话，并且告诉调用者"有哪些场景可用"（而不是丢一句 500）
-    const all = await dbSelect('scenes', 'select=name&order=sort_order.asc');
+    const all = await db.listSceneNames();
     return send(res, 400, {
       ok: false,
       error: '没有「' + scene + '」这个场景',
-      scenes: all.map(function (s) { return s.name; }),
+      scenes: all,
     }, ctx, 'bad scene');
   }
-  const sceneId = scenes[0].id;
+  const sceneId = sceneRow.id;
 
   // ② 用关联字段 scene_id 取名字（这根线就是 Day 16 定的 names.scene_id → scenes.id）
-  const rows = await dbSelect('names',
-    'select=id,name,meaning,char_count&scene_id=eq.' + sceneId);
+  const rows = await db.listNamesByScene(sceneId);
 
   // ③ 关键词过滤
   const hit = keyword
@@ -222,6 +180,7 @@ async function handleLibrary(q, res, ctx) {
 //   ③ 归一化：char_count 由**服务端**数（前端传的一律不信）；
 //              寓意超 30 字**截断**而不是报错（能兜住的不为难用户）
 //   ④ 数据层：交给数据库唯一约束挡重复；把 23505 翻译成 409 中文
+//          （"交给数据库拦"这件事写在 db.js 里——业务层只管把结果翻译成人话）
 // ---------------------------------------------------------------------------
 async function handleCreateName(payload, res, ctx) {
   // ① 格式层：必填 + 长度
@@ -249,20 +208,19 @@ async function handleCreateName(payload, res, ctx) {
   }
 
   // ② 关联层：场景名 → 场景编号（这一步同时把"场景不存在"挡在门外）
-  const scenes = await dbSelect('scenes',
-    'select=id,name&name=eq.' + encodeURIComponent(scene));
-  if (!scenes.length) {
-    const all = await dbSelect('scenes', 'select=name&order=sort_order.asc');
+  const sceneRow = await db.findSceneByName(scene);
+  if (!sceneRow) {
+    const all = await db.listSceneNames();
     return send(res, 400, {
       ok: false,
       error: '没有「' + scene + '」这个场景',
-      scenes: all.map(function (s) { return s.name; }),
+      scenes: all,
     }, ctx, 'bad scene');
   }
-  const sceneId = scenes[0].id;
+  const sceneId = sceneRow.id;
 
   // ④ 写入（char_count 是我们自己数的，不采用请求里的值）
-  const ins = await dbInsert('names', {
+  const ins = await db.insertName({
     scene_id: sceneId,
     name: name,
     meaning: meaning,
@@ -275,10 +233,7 @@ async function handleCreateName(payload, res, ctx) {
       : (ins.body && typeof ins.body === 'object' && ins.body.id ? ins.body : null);
     if (!row) {
       // 万一网关没带回插入行，就自己再查一次 —— 也就是"写入后读回"的双保险
-      const back = await dbSelect('names',
-        'select=id,name,meaning,char_count,created_at&scene_id=eq.' + sceneId +
-        '&name=eq.' + encodeURIComponent(name));
-      row = back[0];
+      row = await db.findNameInScene(sceneId, name);
     }
     if (row) {
       return send(res, 201, {
