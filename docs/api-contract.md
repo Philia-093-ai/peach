@@ -368,6 +368,8 @@ Content-Type: application/json
 
 ## 8. 变更记录
 
+- 2026-10-12（Day 20）：**无接口变更**。前端新增一个接口消费方——首页「名字库实时数据」区（`public/live.js`），并发调用 `GET /api/health`（自检 + 服务端时间）、`GET /api/scenes`、`GET /api/library?limit=1`（每场景一次取 `total` 求和）与 `GET /api/library?limit=4`（名字预览）。跨域维持 Day 17 的约定：由网关统一回显 Origin，函数不做 CORS。
+
 - 2026-10-12（Day 19）：**无接口变更（契约冻结）**。仅重构内部结构——把数据访问层从云函数 `index.js` 拆成独立文件 `db.js`（网关地址、API Key、查询串拼法收进数据层；业务层改调 `db.listScenes()` 等语义化函数）。所有接口的路径、方法、字段、状态码与本文档完全一致，未新增未删除。`/api/health` 的 `version` 字段值从 `1.2.0` 升到 `1.3.0`（仅作"这批代码已上线"的出厂标记，字段定义不变）。
 - 2026-10-11（Day 18）：新增第一个**写入**接口 `POST /api/names`（往词库投稿收录一个名字）。状态码清单补上 `201 Created` 与 `409 Conflict`。写接口的成功用 201、重复提交用 409；重复由数据库唯一约束 `names_scene_name_key` 兜底（Day 16 建的），函数只负责把 `DATABASE_23505` 翻译成中文。
 - 2026-10-11（Day 17）：新增两个 GET 读接口 `GET /api/scenes`、`GET /api/library`（后者是当天的主接口，数据来自 Day 16 建的真库）；`/api/generate` 的 scene 取值同步为 6 个场景（与 scenes 表一致）；补记 CORS 由网关统一处理的约定。

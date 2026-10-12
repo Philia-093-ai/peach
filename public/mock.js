@@ -129,3 +129,61 @@ function fakeLibraryRequest(scene, keyword) {
     }, MOCK_DELAY);
   });
 }
+
+// ==== Day 20 新增：首页也接上真库 ====
+// 词库（libraryRequest）Day 17 就走了真接口；今天轮到**首页**——
+// 首页那块「名字库实时数据」要让访客一眼看到：页面上的数字和名字，是数据库此刻的样子。
+// 比喻：以前首页是"宣传海报"（写死的图），今天在门口摆了一块"实时大屏"，
+//       屏幕上的数字来自仓库里真正的库存，仓库变了大屏就变。
+
+// 一个到处能用的「真接口 GET」helper：统一做三件事——发请求、检查 HTTP 状态、检查 {ok:true}
+function apiGet(path) {
+  return fetch(API_BASE + path)
+    .then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status); // 400 / 404 / 500 一律当失败
+      return res.json();
+    })
+    .then(function (body) {
+      if (!body || !body.ok) throw new Error((body && body.error) || '接口返回异常');
+      return body;
+    });
+}
+
+// Day 20：首页实时数据 —— 一次把该问的都问清楚
+//   ① /health   → 云函数自检（服务名 + 版本）+ 服务端时间（用来显示「最后更新时间」）
+//   ② /scenes   → 数据库里有哪些场景
+//   ③ 每个场景各问一次 /library?limit=1 → 只取 total（这个场景库里到底有几个名字）
+//   把各场景的 total 加起来 = 数据库此刻的名字总数。
+//   请求**并发发出**（Promise.all）：7 个请求一起走，比一个一个排队快得多。
+function liveDataRequest() {
+  var startedAt = Date.now();
+  return apiGet('/health').then(function (health) {
+    return apiGet('/scenes').then(function (scenes) {
+      var list = (scenes.data || []).slice(0, 12); // 保护：场景再多也不狂发请求
+      var jobs = list.map(function (s) {
+        return apiGet('/library?scene=' + encodeURIComponent(s.name) + '&limit=1')
+          .then(function (r) { return { scene: s.name, count: r.total || 0 }; })
+          .catch(function () { return { scene: s.name, count: null }; }); // 单个场景失败不拖垮整块
+      });
+      return Promise.all(jobs).then(function (rows) {
+        var total = rows.reduce(function (a, r) { return a + (r.count || 0); }, 0);
+        return {
+          ok: true,
+          service: health.service,
+          version: health.version,
+          serverTime: health.time,   // 服务端此刻时间（UTC ISO 字符串）
+          elapsedMs: Date.now() - startedAt,
+          scenes: rows,              // [{ scene: '品牌', count: 7 }, ...]
+          sceneCount: list.length,
+          totalNames: total,
+        };
+      });
+    });
+  });
+}
+
+// Day 20：取某个场景的头几条名字（首页那块大屏的"名字预览"用它）
+function previewRequest(scene, limit) {
+  return apiGet('/library?scene=' + encodeURIComponent(scene) + '&limit=' + (limit || 4))
+    .then(function (r) { return r.data || []; });
+}

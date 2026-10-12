@@ -76,6 +76,20 @@
           </div>
         </div>
       </section>
+
+      <!-- ================= Day 20：数据库实时数据（首页也接上真库） =================
+           这一块不是写死的：每次打开页面都会问一次云函数，数字和名字就是数据库此刻的样子。
+           内容由 live.js 渲染；四种状态（加载/成功/空/错误）都在那边处理。 -->
+      <section class="panel live" id="live-db" aria-labelledby="live-title">
+        <div class="live-head">
+          <h2 id="live-title">名字库实时数据</h2>
+          <span class="live-badge">来自云数据库 · PostgreSQL</span>
+        </div>
+        <p class="live-sub">这一块不是写死在页面里的：每次打开都会问一次云函数，数据就是数据库里此刻的样子。</p>
+        <div id="live-body">
+          <p class="live-loading" role="status">正在读取云数据库…</p>
+        </div>
+      </section>
     </section>
 
     <!-- ================= 视图 2：词库（Day 13 新增，承载四种状态） ================= -->
@@ -141,7 +155,7 @@
     </section>
 
     <footer class="foot">
-      每日免费生成 5 次 · 明天自动恢复 · peach（Day 13 多视图版）
+      每日免费生成 5 次 · 明天自动恢复 · peach（公网版 · 数据来自云数据库）
     </footer>
   </main>
 
@@ -149,6 +163,7 @@
   <script src="./filter.js"></script>
   <script src="./mock.js"></script>
   <script src="./library.js"></script>
+  <script src="./live.js"></script>
   <script src="./router.js"></script>
   <script src="./app.js"></script>
 </body>

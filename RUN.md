@@ -101,7 +101,7 @@
 2. 进入项目目录：
 
    ```bat
-   cd C:\Users\lenovo\WorkBuddy\2026-09-26-21-44-36\peach
+   cd C:\Users\lenovo\WorkBuddy\2026-10-08-23-28-22\peach
    ```
 
 3. 启动：

@@ -359,9 +359,85 @@ select:focus, input:focus {
 .about-list li { margin-bottom: 8px; }
 .about a { color: var(--peach-deep); }
 
+/* ── Day 20：首页「名字库实时数据」区（+ 云函数自检 / 最后更新时间） ──
+   Day 9 约束照办：竖向间距只用 8 的倍数；文字色都用已验过对比度的变量
+   （--peach-deep / --peach-light = 4.6:1；--ink-soft / #fff = 6.4:1） */
+.panel.live { margin-top: 24px; }
+.live-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.live-head h2 { font-size: 18px; }
+.live-badge {
+  font-size: 12px;
+  color: var(--peach-deep);
+  background: var(--peach-light);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+.live-sub { font-size: 13px; color: var(--ink-soft); margin: 8px 0 16px; }
+.live-loading { font-size: 13px; color: var(--ink-soft); padding: 16px 0; }
+
+/* 两个大数字：场景数 / 名字总数 */
+.live-stats { display: flex; gap: 8px; margin-bottom: 16px; }
+.live-stat {
+  flex: 1;
+  background: var(--peach-light);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+}
+.live-stat b { display: block; font-size: 24px; color: var(--peach-deep); line-height: 1.2; }
+.live-stat span { font-size: 12px; color: var(--ink-soft); }
+
+/* 场景标签：复用 .chip（含选中态 .chip.on 与焦点光圈） */
+.live-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+
+/* 名字预览：沿用结果区那套两列网格，卡片完全复用 card.js 的组件 */
+.live-preview { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+
+/* 「检查台」三行：自检 / 数据最后更新时间 / 本次读取用量 */
+.live-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.live-meta b { color: var(--peach-deep); font-weight: 600; }
+
+/* 错误状态：温和的浅桃色，说人话 + 给一条出路 */
+.live-error {
+  background: #fff4f0;
+  border: 1px solid #ffd9cc;
+  border-radius: 12px;
+  padding: 16px;
+}
+.live-error-title { font-size: 15px; color: var(--peach-deep); margin-bottom: 8px; }
+.live-error-note { font-size: 13px; color: var(--ink-soft); margin-bottom: 16px; }
+.live-error .btn-plain {
+  font-size: 12px;
+  color: var(--peach-deep);
+  background: #fff;
+  border: 1px solid var(--peach-deep);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.live-error .btn-plain:focus-visible {
+  outline: 3px solid rgba(181, 68, 45, 0.45);
+  outline-offset: 2px;
+}
+
 /* 手机：单列，不横向滚动 */
 @media (max-width: 560px) {
-  #results, .lib-list { grid-template-columns: 1fr; }
+  #results, .lib-list, .live-preview { grid-template-columns: 1fr; }
   h1 { font-size: 24px; }
   .nav-inner { flex-wrap: wrap; }
   .view-head h1 { font-size: 22px; }

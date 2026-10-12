@@ -53,6 +53,9 @@ function renderRoute(moveFocus) {
   // 4) 词库视图第一次进来才去加载数据（省一次没必要的请求）
   if (key === 'library' && typeof ensureLibrary === 'function') ensureLibrary();
 
+  // 4b) Day 20：首页那块「数据库实时数据」同理——进首页时才去问云端（live.js 提供）
+  if (key === 'gen' && typeof ensureLive === 'function') ensureLive();
+
   // 5) 无障碍：换视图后把焦点送到新视图的标题上（读屏用户才知道"换页了"，
   //    键盘用户的 Tab 也从新页开头继续走），并滚回页面顶部
   if (moveFocus) {
