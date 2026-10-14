@@ -1,3 +1,0 @@
-Day 26｜回滚到 v1.0：revert 掉坏版本，重新部署后公网恢复
-改了什么：git revert 掉上一个"演练坏版本"提交 —— public/index.html 的脚本引用从 ./app.min.js 还原为 ./app.js；随后重新执行 hosting deploy，把 v1.0 的产物覆盖回线上。全程计时，明细见 docs/day26-verify.md 与 docs/rollback-playbook.md。
-加了什么：无新增文件。这一步证明"回退"在本项目可行：静态托管没有版本管理（CLI 原文 no version management），回退靠"用历史产物重新部署"，而不是等平台给一键回退。

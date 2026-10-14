@@ -12,3 +12,6 @@ Thumbs.db
 # 编辑器配置
 .vscode/
 .idea/
+
+# Day 26：受损 .git 的现场原件（恢复操作产生），不进仓库
+.git-broken-*/
