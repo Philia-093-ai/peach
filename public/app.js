@@ -102,7 +102,7 @@ function fallbackCopy(text, done) {
   ta.style.opacity = '0';
   document.body.appendChild(ta);
   ta.select();
-  try { document.execCommand('copy'); } catch (e) {}
+  try { document.execCommand('copy'); } catch (e) { /* 故意吞：execCommand 在新浏览器可能被禁，降级路径失败就失败，后面照样走 done() 给用户反馈 */ }
   document.body.removeChild(ta);
   done();
 }

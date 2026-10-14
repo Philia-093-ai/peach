@@ -21,6 +21,41 @@ var LIB_USE_REAL_API = true;  // true = 词库读云数据库（真数据）；f
 // 真接口的地址：静态托管和接口不在同一个域名上，所以这里必须写完整地址（绝对路径）。
 var API_BASE = 'https://apple-1-d2g1zk4836ce03980-1503730028.ap-shanghai.app.tcloudbase.com/api';
 
+// ==== Day 23 新增：把"失败的响应"翻译成人话（三大类，前端和服务端守同一套）====
+// 以前这里的写法是：if (!res.ok) throw new Error('HTTP ' + res.status);
+//   两个毛病：① 用户会看到 "HTTP 500" 这种裸报错（今天要改掉的就是它）；
+//            ② 服务端明明回了一句中文人话（比如「没有「美食」这个场景」），
+//               却因为先判了 !res.ok，还没读 body 就把请求判死了，那句话白白丢掉。
+// 现在改成：**先读响应的 body，能拿到服务端的中文就用服务端那句；实在拿不到，
+//   才按状态码翻成人话**。翻译表和服务端 index.js 的 errKind 一一对应：
+//     ① 请求有问题  400 / 405 / 409 / 413
+//     ② 找不到      404
+//     ③ 服务异常    500+
+//   比喻：外卖没送到 —— 先看商家的留言（body.error），没留言才照订单状态猜个大概。
+function humanizeHttp(status) {
+  if (status === 404) return '没找到这条内容，可能已经被删掉了';
+  if (status === 409) return '这条内容已经存在了';
+  if (status >= 500) return '服务暂时不可用，请稍后重试';
+  if (status >= 400) return '请求有问题，改一下再试'; // 400 / 405 / 413 …
+  return '请求失败，请稍后重试';
+}
+
+// 失败时该说哪句话：服务端的人话优先，拿不到才退回按状态码翻译
+function pickErrorMessage(res, body) {
+  return (body && body.error) || humanizeHttp(res.status);
+}
+
+// 所有真接口调用的统一入口：发请求 → 尽力解析 JSON → 不成就把**人话**抛出去。
+// 好处：以后新增接口只管写地址，错误翻译这一套自动继承，不会有人再手写 "HTTP xxx"。
+function apiFetch(url, options) {
+  return fetch(url, options).then(function (res) {
+    return res.json().catch(function () { return null; }).then(function (body) {
+      if (!res.ok || !body || !body.ok) throw new Error(pickErrorMessage(res, body));
+      return body;
+    });
+  });
+}
+
 // ---- 假数据：每个场景 6 个名字（和真实接口的返回形状一模一样）----
 var MOCK_BATCHES = {
   '品牌': [
@@ -99,16 +134,11 @@ function realLibraryRequest(scene, keyword) {
     + '?scene=' + encodeURIComponent(scene)
     + '&keyword=' + encodeURIComponent((keyword || '').trim());
   // 这个请求没加任何自定义请求头 → 属于浏览器的"简单请求"，不会先发一趟预检
-  return fetch(url)
-    .then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status); // 400 / 404 / 500 一律当失败
-      return res.json();
-    })
-    .then(function (body) {
-      if (!body || !body.ok) throw new Error((body && body.error) || '词库加载失败');
-      // 把接口的形状统一成"上层认识的样子"：{ ok, scene, keyword, data }
-      return { ok: true, scene: body.scene, keyword: body.keyword, data: body.data || [] };
-    });
+  // Day 23：错误翻译一律交给 apiFetch（服务端的中文优先，绝不再抛出 "HTTP xxx"）
+  return apiFetch(url).then(function (body) {
+    // 把接口的形状统一成"上层认识的样子"：{ ok, scene, keyword, data }
+    return { ok: true, scene: body.scene, keyword: body.keyword, data: body.data || [] };
+  });
 }
 
 // ---- Day 13 的假接口（留着当对照；把 LIB_USE_REAL_API 改成 false 就回到它）----
@@ -136,17 +166,9 @@ function fakeLibraryRequest(scene, keyword) {
 // 比喻：以前首页是"宣传海报"（写死的图），今天在门口摆了一块"实时大屏"，
 //       屏幕上的数字来自仓库里真正的库存，仓库变了大屏就变。
 
-// 一个到处能用的「真接口 GET」helper：统一做三件事——发请求、检查 HTTP 状态、检查 {ok:true}
+// 一个到处能用的「真接口 GET」helper —— Day 23 起复用 apiFetch：连错误翻译也一起沿用
 function apiGet(path) {
-  return fetch(API_BASE + path)
-    .then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status); // 400 / 404 / 500 一律当失败
-      return res.json();
-    })
-    .then(function (body) {
-      if (!body || !body.ok) throw new Error((body && body.error) || '接口返回异常');
-      return body;
-    });
+  return apiFetch(API_BASE + path);
 }
 
 // Day 20：首页实时数据 —— 一次把该问的都问清楚
@@ -195,14 +217,7 @@ function previewRequest(scene, limit) {
 function deleteNameRequest(id, name) {
   var url = API_BASE + '/names/' + encodeURIComponent(id)
     + '?confirm=' + encodeURIComponent(name);
-  return fetch(url, { method: 'DELETE' })
-    .then(function (res) {
-      return res.json().catch(function () { return null; }).then(function (body) {
-        if (!res.ok || !body || !body.ok) {
-          // 服务端的中文人话直接往上抛，页面 toast 原样显示（绝不显示状态码让人猜）
-          throw new Error((body && body.error) || ('删除失败（HTTP ' + res.status + '）'));
-        }
-        return body; // { ok, mode:'soft', recoverable:true, data:{...} }
-      });
-    });
+  // Day 23：删除失败也说人话 —— 服务端的中文原样带上来，拿不到才按状态码翻译；
+  //   不再出现「删除失败（HTTP 500）」这种带状态码的半裸报错。
+  return apiFetch(url, { method: 'DELETE' }); // { ok, mode:'soft', recoverable:true, data:{...} }
 }

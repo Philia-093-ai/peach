@@ -182,6 +182,13 @@ select:focus, input:focus {
 .card .copy.retry { background: #fff; border: 1px solid var(--peach-deep); }
 
 .foot { text-align: center; color: var(--ink-soft); font-size: 12px; margin-top: 28px; }
+/* Day 26：版本号徽标。配色沿用已验证组合 --peach-deep/--peach-light = 4.6:1（≥4.5:1 小字达标），
+   不再新造颜色，避免又要重新验对比度 */
+.foot .ver {
+  display: inline-block; margin-right: 8px; padding: 2px 8px;
+  border-radius: 999px; font-weight: 700; letter-spacing: 0.4px;
+  color: var(--peach-deep); background: var(--peach-light);
+}
 
 /* ── Day 11：交互反馈——复制按钮的"动静双通道" ──
    动（动效）：按下缩一缩（:active），成功 pop 弹一下（.copied 动画）

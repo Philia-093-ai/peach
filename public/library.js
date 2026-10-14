@@ -11,6 +11,14 @@
 var libInited = false;
 var libBusy = false;
 var libSearchTimer = null;
+// Day 24 修复用的两个小本本：
+//   libSeq     —— 请求序号。只有"最新那一次"的结果才有资格上屏；
+//                 迟到的旧响应直接丢，不许盖掉新结果。
+//   libPending —— 请求还在飞的时候又来了新条件：记一笔，等这次飞完补跑一次。
+//                 （修复前是直接 return，把用户的新条件**扔掉** —— 切 3 次只发 1 次请求，
+//                  最后列表显示的是第一次那个场景，和下拉框对不上。）
+var libSeq = 0;
+var libPending = false;
 
 function libScene() { return document.getElementById('lib-scene'); }
 function libSearch() { return document.getElementById('lib-search'); }
@@ -44,14 +52,18 @@ function ensureLibrary() {
 }
 
 function loadLibrary() {
-  if (libBusy) return;
+  // Day 24 修复前：if (libBusy) return;  —— 忙的时候把新条件**扔掉**，列表和下拉框从此对不上
+  if (libBusy) { libPending = true; return; } // 不丢单：记一笔，这次飞完用最新条件补跑
   libBusy = true;
+  libPending = false;
+  var seq = ++libSeq;      // 领号：这次请求的结果认这个号
   var scene = libScene().value;
   var kw = libSearch().value.trim();
 
   showLibLoading(scene);
   libraryRequest(scene, kw) // 数据源在 mock.js 里切换：Day 17 起默认走真接口（云数据库）
     .then(function (res) {
+      if (seq !== libSeq) return; // 迟到的旧响应：丢弃，不上屏（防"旧数据盖新数据"）
       // Day 17：字段名从 names 改成 data —— 和云端读接口 /api/library 的返回形状对齐
       if (res && res.ok && res.data && res.data.length) {
         showLibLoaded(res.data, scene, kw);
@@ -59,10 +71,14 @@ function loadLibrary() {
         showLibEmpty(scene, kw); // 拿回来了，但是个空列表 —— 这也是一种"明确的状态"
       }
     })
-    .catch(function () {
-      showLibError();
+    .catch(function (err) {
+      if (seq !== libSeq) return; // 过期的失败同样不上屏（修的是显示，不是吞错误）
+      showLibError(err); // Day 23：把失败的原因也带上（服务端的中文优先）
     })
-    .then(function () { libBusy = false; });
+    .then(function () {
+      libBusy = false;
+      if (libPending) loadLibrary(); // 飞的途中攒下的那一次：现在补上，条件取的是最新的
+    });
 }
 
 // ---------- 四种状态 ----------
@@ -164,7 +180,7 @@ function showLibEmpty(scene, kw) {
   libList().appendChild(card);
 }
 
-function showLibError() {
+function showLibError(err) {
   libMeta().textContent = '词库加载失败';
   libClear();
   var card = document.createElement('div');
@@ -176,7 +192,9 @@ function showLibError() {
 
   var note = document.createElement('div');
   note.className = 'meaning';
-  note.textContent = '网络可能打了个盹，点下面再试一次。';
+  // Day 23：三类错误统一 —— 服务端回了中文原因就照实说（例如「没有「美食」这个场景」），
+  //   拿不到才用这句兜底。无论如何，页面上**只出现人话**，不出现状态码或报错堆栈。
+  note.textContent = (err && err.message) || '网络可能打了个盹，点下面再试一次。';
 
   var btn = document.createElement('button');
   btn.type = 'button';

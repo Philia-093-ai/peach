@@ -1,7 +1,7 @@
 {
   "name": "peach-api",
-  "version": "1.3.0",
-  "description": "peach · /api/* 云函数（Day 17–18 读/写接口；Day 19 抽出数据访问层 db.js）",
+  "version": "1.5.0",
+  "description": "peach · /api/* 云函数（Day 17–18 读/写接口；Day 19 抽出数据访问层 db.js；Day 23 错误提示统一）",
   "main": "index.js",
   "private": true,
   "engines": {

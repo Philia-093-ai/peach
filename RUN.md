@@ -1,6 +1,36 @@
-# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库 · Day 17 读接口 · Day 18 写接口 · Day 19 分层重构 · Day 21 周验收 · Day 22 改/删/恢复）
+# RUN.md｜peach MVP 运行说明（Day 7 存档 · Day 8 增补 · Day 15 公网版 · Day 16 接入数据库 · Day 17 读接口 · Day 18 写接口 · Day 19 分层重构 · Day 21 周验收 · Day 22 改/删/恢复 · Day 23 密钥排查与错误统一 · Day 24 修复忙锁吞请求 · Day 25 发布前检查 Skill · Day 26 v1.0 发布与回滚演练）
 
 > 一句话：一条命令启动，浏览器打开 <http://localhost:3000> 就能用。
+
+## Day 26 增补：正式发布 v1.0 + 完成一次真实回退演练
+
+- **版本**：页脚徽标 `peach v1.0` + git tag `v1.0`（产品版本）；接口版本仍是 `/api/health` 的 **1.5.0** —— 两个号分开走，别混
+- **发布**：`hosting deploy public --verify` 上线；发布前检查 **14 ✅ + 1 ⚠️**，P0 红线 3/3 全过
+- **回退演练（真做了）**：故意发布一个"引用不存在的脚本"的坏版本（页面功能全废）→ 公网确认坏了 → 用 git 历史产物重新部署回去 → 公网恢复。**全程计时**，明细见 `docs/rollback-playbook.md`
+- **关键事实**：静态托管 `tcb hosting deploy` **没有版本管理**（CLI 原文：no version management），所以"回退"= 用历史产物重新部署，不是点按钮
+- **踩到的坑**：`core.autocrlf=true`，用 `git archive` 导出历史产物会**被转成 CRLF**，与线上（LF）字节不一致 → 回退必须用 `git checkout <sha> -- public`（或写回 blob 原文），否则发布前检查第 7 项会误报"本地与线上不一致"
+- 证据：`docs/day26-verify.md`（四步 + 耗时）；截图 `day26-v1-live-bar.png`、`day26-rollback-commits.png`、`day26-after-rollback-bar.png`
+- 今日不做（清单明令）：云函数回退与数据恢复的**实操**——只写进回滚手册备查
+
+## Day 24 增补：修复「词库切场景不生效」（调试日）
+
+- **症状**：词库页连续切场景，下拉框停在最后一个，列表却停在第一个 —— 界面自相矛盾，且**控制台 0 报错**
+- **根因**：`public/library.js` 的 `if (libBusy) return;` 在请求还在飞时把新条件**静默扔掉**（切 3 次只发 1 条请求，F12 Network 可证）
+- **修法**：忙时不丢单（`libPending` 记一笔）+ 飞完用最新条件**补跑** + 请求序号（`libSeq`）保证只有最新一次的结果上屏（防"旧响应盖新结果"）
+- **余力加练**：首页预览区（`public/live.js` `loadPreview`）同款竞态用序号守卫修掉（迟到的旧响应不再覆盖新场景）
+- **验证**：修前/修后同一套动作 A/B（本地 + 公网都跑），回归 12 项全绿；已 `hosting deploy public` 上线
+- 证据：`docs/day24-verify.md`（四步证据 + 排除过程 + 记录不修的其他问题）；截图 `day24-repro-f12.png`、`day24-fixed-verify.png`
+- 今日未做：修其余已记录的 5 个低优先级问题（见 day24-verify.md 第 5 节）、业务逻辑改动
+
+## Day 23 增补：密钥排查（红线）+ 三类错误提示统一
+
+- **密钥排查**：全仓库 112 个被跟踪文件搜 7 类密钥特征词（ghp_ / AKID / sk- / Bearer 长串 / 私钥头…）→ **0 条**；拿 `.env` 里真实密钥值原样反查 → **0 处**。密钥只活在两处：本机 `.env` 和云函数环境变量
+- **.env 检查**：未被 git 跟踪（`ls-files` 不匹配）+ 被忽略（`.gitignore:2`）+ **历史从没提交过**（`git log --all` 为空）——三道全过
+- **错误三大类**：`请求有问题`(400/405/409/413) · `找不到`(404) · `服务异常`(500)；失败响应统一带 `type` 标签（服务端 `send()` 出口自动贴），500 的人话按"读/写/删"各一句
+- **裸报错清零**：`public/mock.js` 三处调用统一走 `apiFetch`，失败时服务端中文优先、状态码翻译兜底；原来那句 `throw new Error('HTTP ' + res.status)`（用户会看到「HTTP 500」）已删干净
+- 部署：`fn deploy api --force`（version **1.5.0**）+ `hosting deploy public`；接口路径/字段/状态码零变化，`type` 是新增字段（向后兼容）
+- 证据：本地 6 用例 + 公网 400/404 实测都在 `docs/day23-verify.md`；截图 `day23-secret-search-bar.png`（搜索 0 条）与 `day23-three-errors-bar.png`（三类中文提示）
+- 今日未做：复杂异常处理框架、业务逻辑改动（清单明令不做）
 
 ## Day 22 增补：PATCH / DELETE 上线，names 的增删改查闭环了
 

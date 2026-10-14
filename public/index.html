@@ -149,13 +149,19 @@
         <p>每天可以免费生成 5 次，隔天自动恢复；复制名字不占额度。</p>
         <p><strong>数据说明</strong></p>
         <p>词库已经是<b>真数据</b>了：来自云数据库（PostgreSQL）里的场景表与名字表（Day 16 建表、Day 17 接通读接口）。生成器目前仍用本地示例数据，真接口排在后面几天。</p>
+        <p><strong>版本</strong></p>
+        <p><b>v1.0</b>（Day 26 正式发布）—— 生成器 / 词库 / 关于三个视图，词库接真库，增删改查闭环。</p>
         <p><strong>源码</strong></p>
         <p><a href="https://github.com/Philia-093-ai/peach" target="_blank" rel="noopener">github.com/Philia-093-ai/peach</a></p>
       </div>
     </section>
 
+    <!-- Day 26：正式发布 v1.0，页脚挂上版本号。
+         为什么页脚也要有版本：出问题时用户报的是"你那个站"，你没法确认他看的是哪一版；
+         页脚写死版本号（肉眼可见）+ git tag（代码可见）两处对齐，"这版是几版"就不用猜了 -->
     <footer class="foot">
-      每日免费生成 5 次 · 明天自动恢复 · peach（公网版 · 数据来自云数据库）
+      <span class="ver">peach v1.0</span>
+      每日免费生成 5 次 · 明天自动恢复 · 数据来自云数据库
     </footer>
   </main>
 

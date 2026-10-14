@@ -34,8 +34,8 @@ function loadLive() {
       if (!d.sceneCount) return showLiveEmpty();   // 库里没有任何场景 → 空状态
       showLiveLoaded(d);
     })
-    .catch(function () {
-      showLiveError();                              // 说人话，不丢堆栈
+    .catch(function (err) {
+      showLiveError(err);                           // 说人话，不丢堆栈
     })
     .then(function () { liveBusy = false; });
 }
@@ -71,7 +71,7 @@ function showLiveEmpty() {
   b.appendChild(liveMetaBlock(liveData));
 }
 
-function showLiveError() {
+function showLiveError(err) {
   var b = liveBody();
   b.textContent = '';
   var box = document.createElement('div');
@@ -83,7 +83,8 @@ function showLiveError() {
 
   var m = document.createElement('p');
   m.className = 'live-error-note';
-  m.textContent = '网络可能打了个盹。点下面再试一次。';
+  // Day 23：三类错误统一 —— 有服务端给的 / 翻译好的人话就照实说，没有才用这句兜底
+  m.textContent = (err && err.message) || '网络可能打了个盹。点下面再试一次。';
 
   var btn = document.createElement('button');
   btn.type = 'button';
@@ -148,10 +149,17 @@ function showLiveLoaded(d) {
 }
 
 // 只改预览区：换场景时不用重新问那两个大数字
+// Day 24 修复：预览区以前没有任何守卫 —— 连点两个场景标签时，**先发出**的那个请求
+//   如果**后回来**（网络抖一下很常见），它的结果会把新场景的名字盖掉，
+//   于是高亮的标签和下面展示的名字对不上。现在给预览区也发"请求序号"：
+//   只有最新一次的结果允许上屏，迟到的旧响应直接丢弃。
+var livePreviewSeq = 0;
+
 function loadPreview(scene) {
   var box = document.getElementById('live-preview');
   if (!box) return;
   if (!scene) { box.textContent = ''; return; }
+  var seq = ++livePreviewSeq; // 领号：这次的结果认这个号
   box.textContent = '';
   var p = document.createElement('p');
   p.className = 'live-loading';
@@ -160,6 +168,7 @@ function loadPreview(scene) {
 
   previewRequest(scene, 4)
     .then(function (names) {
+      if (seq !== livePreviewSeq) return; // 迟到的旧响应：丢弃，不上屏（Day 24 修复的核心一行）
       if (!names.length) {
         var t = document.createElement('p');
         t.className = 'live-loading';
@@ -171,6 +180,7 @@ function loadPreview(scene) {
       renderNameList(box, names); // 复用 card.js：有名字有寓意有复制按钮
     })
     .catch(function () {
+      if (seq !== livePreviewSeq) return; // 过期的失败也不上屏
       var t = document.createElement('p');
       t.className = 'live-loading';
       t.textContent = '「' + scene + '」没读出来，点上方场景标签再试一次。';
