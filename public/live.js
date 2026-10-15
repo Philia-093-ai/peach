@@ -224,7 +224,8 @@ function liveMetaBlock(d) {
   meta.appendChild(metaLine('🕘 数据最后更新',
     fmtTime(d.serverTime) + '（服务端时间）'));
   meta.appendChild(metaLine('⚡ 本次读取',
-    d.sceneCount + ' 个场景 · ' + (d.sceneCount + 1) + ' 次请求 · 用时 ' + d.elapsedMs + ' 毫秒'));
+    // 请求次数 = 1 次 /health + 1 次 /scenes + 每个场景各 1 次 /library = sceneCount + 2
+    d.sceneCount + ' 个场景 · ' + (d.sceneCount + 2) + ' 次请求 · 用时 ' + d.elapsedMs + ' 毫秒'));
   return meta;
 }
 

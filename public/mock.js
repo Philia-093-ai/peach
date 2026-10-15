@@ -192,7 +192,8 @@ function apiGet(path) {
 //   ② /scenes   → 数据库里有哪些场景
 //   ③ 每个场景各问一次 /library?limit=1 → 只取 total（这个场景库里到底有几个名字）
 //   把各场景的 total 加起来 = 数据库此刻的名字总数。
-//   请求**并发发出**（Promise.all）：7 个请求一起走，比一个一个排队快得多。
+//   请求**并发发出**（Promise.all）：1 次 /health + 1 次 /scenes + 每个场景各 1 次 = N + 2 个请求一起走，
+//   比一个一个排队快得多。
 function liveDataRequest() {
   var startedAt = Date.now();
   return apiGet('/health').then(function (health) {

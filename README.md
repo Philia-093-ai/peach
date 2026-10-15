@@ -2,14 +2,16 @@
 
 30 天建站学习计划的项目仓库。
 
-**当前版本：peach v1.0**（2026-10-14 正式发布）—— 公网可访问、发布前检查全过、有回滚手册。
+**当前版本：peach v1.0**（2026-10-14 正式发布，2026-10-15 结营验收通过）—— 公网可访问、发布前检查全过、有回滚手册。
 发版说明见 [`docs/day26-release-notes.md`](docs/day26-release-notes.md)，
-出事怎么退见 [`docs/rollback-playbook.md`](docs/rollback-playbook.md)。
+出事怎么退见 [`docs/rollback-playbook.md`](docs/rollback-playbook.md)，
+结营验收与复盘见 [`docs/day28-acceptance.md`](docs/day28-acceptance.md) / [`docs/day28-retro.md`](docs/day28-retro.md)。
 
 - Day 2：仓库初始化与首次提交
 - Day 7：完成 MVP 功能
 - Day 25：发布前检查 Skill（preflight-check）
 - Day 26：正式发布 v1.0 + 静态托管回退演练
+- Day 28：结营验收（29 项逐项打勾）+ 结营复盘 + 部署日志
 
 > `.env` 文件用于存放数据库等本地配置，已被 `.gitignore` 忽略，不会上传到 GitHub。
 
